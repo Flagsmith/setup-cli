@@ -102,9 +102,7 @@ describe('dryRunReport', () => {
     ).toBe('v2.0.0')
   })
 
-  it('complains with the output when there is no version to read', () => {
-    expect(() => dryRunReport('install.sh: need curl or wget')).toThrow(
-      /did not report a version: install.sh: need curl or wget/,
-    )
+  it('reports nothing when the output has no version to read', () => {
+    expect(dryRunReport('install.sh: need curl or wget')).toBeUndefined()
   })
 })

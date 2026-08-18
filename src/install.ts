@@ -29,14 +29,14 @@ export async function installCli(requested: string): Promise<string> {
 
   const version = pinned || (await dryRunVersion(command, [...args, dryRunFlag]))
 
-  const cached = tc.find(TOOL_NAME, version, process.arch)
+  const cached = version && tc.find(TOOL_NAME, version, process.arch)
   if (cached) {
     core.info(`Using cached flagsmith ${version} (${process.arch})`)
     core.addPath(cached)
     return cached
   }
 
-  core.info(`Running the CLI's ${script} (${version})`)
+  core.info(`Running the CLI's ${script}`)
   await exec(command, args)
 
   if (!fs.existsSync(binary)) {
@@ -45,24 +45,30 @@ export async function installCli(requested: string): Promise<string> {
     )
   }
 
+  // An unreadable dry run costs the tool cache, not the install.
+  if (!version) {
+    core.addPath(binDir)
+    return binDir
+  }
+
   const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
   core.addPath(dir)
   return dir
 }
 
-/** The version a dry run reports it would install. */
-export function dryRunReport(output: string): string {
-  const version = /^would install \S+ (\S+)/m.exec(output)?.[1]
-  if (!version) {
-    throw new Error(
-      `the installer's dry run did not report a version: ${output.replace(/\s+/g, ' ').trim().slice(0, 200)}`,
-    )
-  }
-  return version
+/** The version a dry run reports it would install, if it reported one. */
+export function dryRunReport(output: string): string | undefined {
+  return /^would install \S+ (\S+)/m.exec(output)?.[1]
 }
 
-async function dryRunVersion(command: string, args: string[]): Promise<string> {
-  const { stdout } = await getExecOutput(command, args, { silent: true })
+async function dryRunVersion(
+  command: string,
+  args: string[],
+): Promise<string | undefined> {
+  const { stdout } = await getExecOutput(command, args, {
+    silent: true,
+    ignoreReturnCode: true,
+  })
   return dryRunReport(stdout)
 }
 

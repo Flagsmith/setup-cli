@@ -23287,34 +23287,35 @@ async function installCli(requested) {
   const { script, scriptPath, binary, command, args, dryRunFlag } = platformInstaller(pinned, temp, binDir);
   await fetchInstaller(pinned || "main", script, scriptPath);
   const version = pinned || await dryRunVersion(command, [...args, dryRunFlag]);
-  const cached = find(TOOL_NAME, version, process.arch);
+  const cached = version && find(TOOL_NAME, version, process.arch);
   if (cached) {
     info(`Using cached flagsmith ${version} (${process.arch})`);
     addPath(cached);
     return cached;
   }
-  info(`Running the CLI's ${script} (${version})`);
+  info(`Running the CLI's ${script}`);
   await exec(command, args);
   if (!fs5.existsSync(binary)) {
     throw new Error(
       `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
     );
   }
+  if (!version) {
+    addPath(binDir);
+    return binDir;
+  }
   const dir = await cacheDir(binDir, TOOL_NAME, version, process.arch);
   addPath(dir);
   return dir;
 }
 function dryRunReport(output) {
-  const version = /^would install \S+ (\S+)/m.exec(output)?.[1];
-  if (!version) {
-    throw new Error(
-      `the installer's dry run did not report a version: ${output.replace(/\s+/g, " ").trim().slice(0, 200)}`
-    );
-  }
-  return version;
+  return /^would install \S+ (\S+)/m.exec(output)?.[1];
 }
 async function dryRunVersion(command, args) {
-  const { stdout } = await getExecOutput(command, args, { silent: true });
+  const { stdout } = await getExecOutput(command, args, {
+    silent: true,
+    ignoreReturnCode: true
+  });
   return dryRunReport(stdout);
 }
 function pinnedVersion(requested) {
