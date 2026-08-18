@@ -16,20 +16,16 @@ inputs:
   audience:
     description: >-
       The `aud` claim to request for the GitHub OIDC token. Leave unset to use
-      GitHub's default audience (https://github.com/OWNER), which is what the
-      GitHub Actions trust relationship form expects. Set it to target a trust
+      GitHub's default audience (https://github.com/OWNER). Set it to target a trust
       relationship configured with a specific audience.
     required: false
-    default: ''
+    default: ""
   cli-version:
     description: >-
       Version of the CLI to install, e.g. `v2.0.0`. Defaults to the latest
       release.
     required: false
     default: latest
-
-# This action has no outputs: `flagsmith --version`, `flagsmith auth status` and
-# `flagsmith auth token` report everything an output could carry.
 
 runs:
   using: node24
