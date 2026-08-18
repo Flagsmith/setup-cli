@@ -22992,10 +22992,10 @@ async function exchangeToken(apiUrl, idToken, http2 = new HttpClient("Flagsmith/
   const body = await response.readBody();
   const status = response.message.statusCode ?? 0;
   if (status !== 200) {
-    const detail = errorDetail(body);
+    const snippet = body.replace(/\s+/g, " ").trim().slice(0, 500);
     throw new Error(
-      `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}` + (detail ? `
-Instance said: ${detail}` : "")
+      `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}` + (snippet ? `
+Response body: ${snippet}` : "")
     );
   }
   return parseExchangeResponse(body);
@@ -23036,20 +23036,6 @@ function parseExchangeResponse(body) {
     accessToken,
     expiresIn: typeof parsed.expires_in === "number" ? parsed.expires_in : void 0
   };
-}
-function errorDetail(body) {
-  let parsed;
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    return void 0;
-  }
-  if (parsed === null || parsed === void 0) {
-    return void 0;
-  }
-  const detail = typeof parsed === "object" && "detail" in parsed ? parsed.detail : parsed;
-  const text = typeof detail === "string" ? detail : JSON.stringify(detail);
-  return text.slice(0, 500);
 }
 function exchangeFailureHint(status, apiUrl) {
   return HINTS[status]?.(apiUrl) ?? "Check that api-url points at a Flagsmith instance with trust relationships configured.";

@@ -26,10 +26,14 @@ export async function exchangeToken(
   const status = response.message.statusCode ?? 0
 
   if (status !== 200) {
-    const detail = errorDetail(body)
+    // Show the body whatever its content type, on one line. When something
+    // between the runner and the instance answers instead of Flagsmith — a
+    // proxy demanding authentication, a captive portal, a load balancer with no
+    // backend — an HTML page is the only description of the failure there is.
+    const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 500)
     throw new Error(
       `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}` +
-      (detail ? `\nInstance said: ${detail}` : ''),
+      (snippet ? `\nResponse body: ${snippet}` : ''),
     )
   }
   return parseExchangeResponse(body)
@@ -80,25 +84,6 @@ export function parseExchangeResponse(body: string): ExchangedToken {
     accessToken,
     expiresIn: typeof parsed.expires_in === 'number' ? parsed.expires_in : undefined,
   }
-}
-
-/** The message from a JSON error body, truncated. HTML error pages yield nothing. */
-export function errorDetail(body: string): string | undefined {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(body)
-  } catch {
-    return undefined
-  }
-  if (parsed === null || parsed === undefined) {
-    return undefined
-  }
-  const detail =
-    typeof parsed === 'object' && 'detail' in parsed
-      ? (parsed as { detail: unknown }).detail
-      : parsed
-  const text = typeof detail === 'string' ? detail : JSON.stringify(detail)
-  return text.slice(0, 500)
 }
 
 export function exchangeFailureHint(status: number, apiUrl: string): string {

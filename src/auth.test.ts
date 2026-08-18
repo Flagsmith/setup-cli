@@ -7,7 +7,7 @@ import * as path from 'node:path'
 import type { AddressInfo } from 'node:net'
 
 import {
-  errorDetail,
+
   exchangeFailureHint,
   exchangeToken,
   hasOidcIdentity,
@@ -38,34 +38,6 @@ describe('parseExchangeResponse', () => {
     ['<html>nope</html>', 'not JSON'],
   ])('rejects %s', (body, message) => {
     expect(() => parseExchangeResponse(body)).toThrow(message)
-  })
-})
-
-describe('errorDetail', () => {
-  it('prefers a DRF detail field', () => {
-    expect(errorDetail('{"detail":"Token validation failed"}')).toBe(
-      'Token validation failed',
-    )
-  })
-
-  it('suppresses an HTML error page', () => {
-    expect(errorDetail('<!doctype html><h1>Not Found</h1>')).toBeUndefined()
-  })
-
-  it('suppresses plain text', () => {
-    expect(errorDetail('upstream connect error')).toBeUndefined()
-  })
-
-  it('serialises a JSON body with no detail field', () => {
-    expect(errorDetail('{"token":["This field is required."]}')).toBe(
-      '{"token":["This field is required."]}',
-    )
-  })
-
-  it('truncates a long detail', () => {
-    expect(errorDetail(JSON.stringify({ detail: 'x'.repeat(900) }))).toHaveLength(
-      500,
-    )
   })
 })
 
@@ -180,6 +152,13 @@ describe('exchangeToken', () => {
         } else if (req.url?.includes('missing')) {
           res.writeHead(404, { 'content-type': 'text/html' })
           res.end('<!doctype html><h1>Not Found</h1>')
+        } else if (req.url?.includes('proxy')) {
+          // What a corporate proxy answers, rather than Flagsmith.
+          res.writeHead(407, { 'content-type': 'text/html' })
+          res.end('<html>\n  <head>\n    <title>407 Proxy Authentication Required</title>\n')
+        } else if (req.url?.includes('verbose')) {
+          res.writeHead(500, { 'content-type': 'text/plain' })
+          res.end('x'.repeat(900))
         } else {
           json(200, {
             access_token: 'fs_access_token',
@@ -222,7 +201,7 @@ describe('exchangeToken', () => {
     ).rejects.toThrow(/HTTP 401.*trust relationship matched[\s\S]*No matching trust relationship/)
   })
 
-  it('explains a 404 without dumping the HTML page', async () => {
+  it('explains a 404 and still shows the body', async () => {
     const error = await exchangeToken(
       `${baseUrl}/missing`,
       'tok',
@@ -230,6 +209,30 @@ describe('exchangeToken', () => {
     ).catch((e: Error) => e)
 
     expect(error.message).toMatch(/HTTP 404/)
-    expect(error.message).not.toContain('doctype')
+    expect(error.message).toContain('Not Found')
+  })
+
+  it('shows a proxy\u2019s HTML answer on one line', async () => {
+    const error = await exchangeToken(
+      `${baseUrl}/proxy`,
+      'tok',
+      new HttpClient('test'),
+    ).catch((e: Error) => e)
+
+    // The diagnosis is in the page, not in anything Flagsmith sent.
+    expect(error.message).toContain('407 Proxy Authentication Required')
+    // One line, so the annotation stays readable.
+    expect(error.message.split('\n')).toHaveLength(2)
+  })
+
+  it('truncates a very long body', async () => {
+    const error = await exchangeToken(
+      `${baseUrl}/verbose`,
+      'tok',
+      new HttpClient('test'),
+    ).catch((e: Error) => e)
+
+    expect(error.message).toContain('x'.repeat(500))
+    expect(error.message).not.toContain('x'.repeat(501))
   })
 })
