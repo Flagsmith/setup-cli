@@ -60,30 +60,6 @@ export function scriptUrl(version: string, script: string): string {
   return `https://raw.githubusercontent.com/${REPO}/${version}/${script}`
 }
 
-export async function assertDownloaderAvailable(
-  platform: string = process.platform,
-  which: (cmd: string) => Promise<boolean> = commandExists,
-): Promise<void> {
-  if (platform === 'win32') {
-    return
-  }
-  if ((await which('curl')) || (await which('wget'))) {
-    return
-  }
-  throw new Error(
-    "the CLI installer needs curl or wget, and neither is on PATH. If this job uses `container:`, add curl to the image, or run on the runner directly.",
-  )
-}
-
-async function commandExists(command: string): Promise<boolean> {
-  return (
-    (await exec('sh', ['-c', `command -v ${command}`], {
-      ignoreReturnCode: true,
-      silent: true,
-    })) === 0
-  )
-}
-
 async function fetchInstaller(
   version: string,
   script: string,
@@ -116,8 +92,6 @@ export async function installCli(version: string): Promise<string> {
     core.addPath(cached)
     return cached
   }
-
-  await assertDownloaderAvailable()
 
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? '/tmp'
   const binDir = path.join(temp, 'flagsmith-cli-install')

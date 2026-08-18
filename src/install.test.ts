@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  assertDownloaderAvailable,
-  platformInstaller,
-  scriptUrl,
-} from './install.js'
+import { platformInstaller, scriptUrl } from './install.js'
 
 describe('platformInstaller', () => {
   it('keeps the shell installer out of $HOME and off PATH', () => {
@@ -59,38 +55,5 @@ describe('scriptUrl', () => {
     expect(scriptUrl('v2.0.0', 'install.sh')).toBe(
       'https://raw.githubusercontent.com/Flagsmith/flagsmith-cli/v2.0.0/install.sh',
     )
-  })
-})
-
-describe('assertDownloaderAvailable', () => {
-  const never = async () => false
-  const always = async () => true
-
-  it('passes when curl is present', async () => {
-    await expect(
-      assertDownloaderAvailable('linux', async (c) => c === 'curl'),
-    ).resolves.toBeUndefined()
-  })
-
-  it('passes when only wget is present, as on alpine', async () => {
-    await expect(
-      assertDownloaderAvailable('linux', async (c) => c === 'wget'),
-    ).resolves.toBeUndefined()
-  })
-
-  it('blames the container when neither is present', async () => {
-    // ubuntu:24.04, node:*-slim and python:*-slim all ship neither.
-    await expect(assertDownloaderAvailable('linux', never)).rejects.toThrow(
-      /needs curl or wget.*container:/s,
-    )
-  })
-
-  it('does not check on Windows, where install.ps1 downloads itself', async () => {
-    await expect(
-      assertDownloaderAvailable('win32', never),
-    ).resolves.toBeUndefined()
-    await expect(
-      assertDownloaderAvailable('win32', always),
-    ).resolves.toBeUndefined()
   })
 })

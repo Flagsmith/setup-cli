@@ -23310,23 +23310,6 @@ function platformInstaller(version, temp, binDir, platform2 = process.platform) 
 function scriptUrl(version, script) {
   return `https://raw.githubusercontent.com/${REPO}/${version}/${script}`;
 }
-async function assertDownloaderAvailable(platform2 = process.platform, which2 = commandExists) {
-  if (platform2 === "win32") {
-    return;
-  }
-  if (await which2("curl") || await which2("wget")) {
-    return;
-  }
-  throw new Error(
-    "the CLI installer needs curl or wget, and neither is on PATH. If this job uses `container:`, add curl to the image, or run on the runner directly."
-  );
-}
-async function commandExists(command) {
-  return await exec("sh", ["-c", `command -v ${command}`], {
-    ignoreReturnCode: true,
-    silent: true
-  }) === 0;
-}
 async function fetchInstaller(version, script, destination) {
   const url = scriptUrl(version, script);
   const http2 = new HttpClient("Flagsmith/setup-cli");
@@ -23346,7 +23329,6 @@ async function installCli(version) {
     addPath(cached);
     return cached;
   }
-  await assertDownloaderAvailable();
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
   const binDir = path6.join(temp, "flagsmith-cli-install");
   await fs5.promises.mkdir(binDir, { recursive: true });
