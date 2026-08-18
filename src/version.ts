@@ -39,7 +39,10 @@ export async function resolveVersion(requested: string): Promise<string> {
     tag = undefined
   }
   if (typeof tag !== 'string' || tag === '') {
-    throw new Error(`unexpected response from ${url}. Pin cli-version instead.`)
+    const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 200)
+    throw new Error(
+      `unexpected response from ${url}: ${snippet}. Pin cli-version instead.`,
+    )
   }
   core.info(`Resolved cli-version "latest" to ${tag}`)
   return tag
