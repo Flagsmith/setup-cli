@@ -23300,12 +23300,19 @@ async function installCli(requested) {
     addPath(cached);
     return cached;
   }
-  info(`Running the CLI's ${script}`);
+  info("Installing Flagsmith CLI");
   await exec(command, args);
   if (!fs5.existsSync(binary)) {
     throw new Error(
       `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
     );
+  }
+  if (version === "") {
+    const { stdout } = await getExecOutput(binary, ["--version"], {
+      silent: true,
+      ignoreReturnCode: true
+    });
+    version = /v?\d+\.\d+\.\d+[\w.+-]*/.exec(stdout)?.[0] ?? "";
   }
   if (version === "") {
     addPath(binDir);

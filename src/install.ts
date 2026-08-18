@@ -43,7 +43,7 @@ export async function installCli(requested: string): Promise<string> {
     return cached
   }
 
-  core.info(`Running the CLI's ${script}`)
+  core.info('Installing Flagsmith CLI')
   await exec(command, args)
 
   if (!fs.existsSync(binary)) {
@@ -52,7 +52,16 @@ export async function installCli(requested: string): Promise<string> {
     )
   }
 
-  // An unreadable dry run costs the tool cache, not the install.
+  if (version === '') {
+    // The installed binary is the authority when the dry run said nothing. An
+    // unstamped build reports `dev`, which must not be cached as a version.
+    const { stdout } = await getExecOutput(binary, ['--version'], {
+      silent: true,
+      ignoreReturnCode: true,
+    })
+    version = /v?\d+\.\d+\.\d+[\w.+-]*/.exec(stdout)?.[0] ?? ''
+  }
+
   if (version === '') {
     core.addPath(binDir)
     return binDir
