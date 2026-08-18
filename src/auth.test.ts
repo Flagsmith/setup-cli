@@ -7,7 +7,6 @@ import * as path from 'node:path'
 import type { AddressInfo } from 'node:net'
 
 import {
-
   exchangeFailureHint,
   exchangeToken,
   hasOidcIdentity,
