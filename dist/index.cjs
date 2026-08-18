@@ -12,10 +12,6 @@ var __commonJS = (cb, mod) => function __require() {
     throw mod = 0, e;
   }
 };
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -32,7 +28,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/tunnel/lib/tunnel.js
 var require_tunnel = __commonJS({
@@ -20826,13 +20821,6 @@ var require_semver2 = __commonJS({
   }
 });
 
-// src/main.ts
-var main_exports = {};
-__export(main_exports, {
-  run: () => run
-});
-module.exports = __toCommonJS(main_exports);
-
 // node_modules/@actions/core/lib/command.js
 var os = __toESM(require("os"), 1);
 
@@ -23383,7 +23371,7 @@ async function fetchInstaller(ref, script, destination) {
 
 // src/main.ts
 var NO_IDENTITY_WARNING = "This job cannot request an OIDC token, so the CLI was installed but not authenticated. Add `permissions: id-token: write` to the job to use a Flagsmith trust relationship, or set FLAGSMITH_API_KEY yourself.";
-var FORK_PR_WARNING = "Pull requests from forks are not given an OIDC identity by GitHub, so the CLI was installed but not authenticated. This cannot be granted with `permissions:`. Use `pull_request_target` with a reviewed workflow, or a Master API key from secrets, if these runs need Flagsmith access.";
+var FORK_PR_WARNING = "Pull requests from forks are not given an OIDC identity by GitHub, so the CLI was installed but not authenticated. This cannot be granted with `permissions:`. Use `pull_request_target` with a reviewed workflow, or a FLAGSMITH_API_KEY from secrets, if these runs need Flagsmith access.";
 async function run() {
   const apiUrl = new URL(getInput("api-url") || DEFAULT_API_URL).href.replace(
     /\/$/,
@@ -23413,14 +23401,10 @@ async function run() {
     `Authenticated against ${apiUrl}` + (token.expiresIn ? `; access token expires in ${token.expiresIn}s` : "")
   );
 }
-if (process.env.VITEST === void 0) {
-  run().catch((error2) => {
-    setFailed(error2 instanceof Error ? error2.message : String(error2));
-  });
-}
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  run
+
+// src/index.ts
+run().catch((error2) => {
+  setFailed(error2 instanceof Error ? error2.message : String(error2));
 });
 /*! Bundled license information:
 

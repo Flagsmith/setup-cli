@@ -6,9 +6,6 @@ export const API_KEY_ENV = 'FLAGSMITH_API_KEY'
 
 /**
  * The name of a credential this environment already carries for an instance.
- *
- * A Master API key wins over an access token, and an unscoped name counts only
- * for the default host.
  */
 export function existingCredential(
   apiUrl: string,

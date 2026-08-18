@@ -18,7 +18,7 @@ const FORK_PR_WARNING =
   'Pull requests from forks are not given an OIDC identity by GitHub, so the ' +
   'CLI was installed but not authenticated. This cannot be granted with ' +
   '`permissions:`. Use `pull_request_target` with a reviewed workflow, or a ' +
-  'Master API key from secrets, if these runs need Flagsmith access.'
+  'FLAGSMITH_API_KEY from secrets, if these runs need Flagsmith access.'
 
 export async function run(): Promise<void> {
   const apiUrl = new URL(core.getInput('api-url') || DEFAULT_API_URL).href.replace(
@@ -58,11 +58,3 @@ export async function run(): Promise<void> {
     (token.expiresIn ? `; access token expires in ${token.expiresIn}s` : ''),
   )
 }
-
-/* c8 ignore start */
-if (process.env.VITEST === undefined) {
-  run().catch((error: unknown) => {
-    core.setFailed(error instanceof Error ? error.message : String(error))
-  })
-}
-/* c8 ignore stop */
