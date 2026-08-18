@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { pinnedVersion, platformInstaller, scriptUrl } from './install.js'
+import {
+  dryRunReport,
+  pinnedVersion,
+  platformInstaller,
+  scriptUrl,
+} from './install.js'
 
 describe('pinnedVersion', () => {
   it.each([
@@ -77,6 +82,29 @@ describe('scriptUrl', () => {
   it('pins the installer to the version being installed', () => {
     expect(scriptUrl('v2.0.0', 'install.sh')).toBe(
       'https://raw.githubusercontent.com/Flagsmith/flagsmith-cli/v2.0.0/install.sh',
+    )
+  })
+})
+
+describe('dryRunReport', () => {
+  it('reads the version out of install.sh output', () => {
+    expect(
+      dryRunReport(
+        'would install flagsmith v2.0.0-beta.3 (linux/amd64) to /tmp/bin\n' +
+          '  archive:   https://example.com/flagsmith_2.0.0-beta.3_linux_amd64.tar.gz\n',
+      ),
+    ).toBe('v2.0.0-beta.3')
+  })
+
+  it('reads the version out of install.ps1 output', () => {
+    expect(
+      dryRunReport('would install flagsmith v2.0.0 (windows/x86_64) to C:\\t\\bin'),
+    ).toBe('v2.0.0')
+  })
+
+  it('complains with the output when there is no version to read', () => {
+    expect(() => dryRunReport('install.sh: need curl or wget')).toThrow(
+      /did not report a version: install.sh: need curl or wget/,
     )
   })
 })

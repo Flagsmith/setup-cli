@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import * as core from '@actions/core'
-import { exec } from '@actions/exec'
+import { exec, getExecOutput } from '@actions/exec'
 import * as tc from '@actions/tool-cache'
 import { HttpClient } from '@actions/http-client'
 
@@ -12,35 +12,31 @@ const TOOL_NAME = 'flagsmith'
 /**
  * Install the CLI, add it to PATH, and return the directory it lives in.
  *
- * A pinned version is installed by the installer published alongside it and
- * kept in the tool cache. An unpinned install runs the installer from `main`,
- * whose default version is the latest release, and is not cached: the key would
- * have to be a moving target.
+ * A pinned version is installed by the installer published alongside it. An
+ * unpinned install runs the installer from `main`, whose default version is the
+ * latest release, and asks it which version that is before installing, so the
+ * tool cache is keyed on a concrete tag either way.
  */
 export async function installCli(requested: string): Promise<string> {
-  const version = pinnedVersion(requested)
-
-  if (version) {
-    const cached = tc.find(TOOL_NAME, version, process.arch)
-    if (cached) {
-      core.info(`Using cached flagsmith ${version} (${process.arch})`)
-      core.addPath(cached)
-      return cached
-    }
-  }
-
+  const pinned = pinnedVersion(requested)
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? '/tmp'
   const binDir = path.join(temp, 'flagsmith-cli-install')
   await fs.promises.mkdir(binDir, { recursive: true })
 
-  const { script, scriptPath, binary, command, args } = platformInstaller(
-    version,
-    temp,
-    binDir,
-  )
-  await fetchInstaller(version || 'main', script, scriptPath)
+  const { script, scriptPath, binary, command, args, dryRunFlag } =
+    platformInstaller(pinned, temp, binDir)
+  await fetchInstaller(pinned || 'main', script, scriptPath)
 
-  core.info(`Running the CLI's ${script}`)
+  const version = pinned || (await dryRunVersion(command, [...args, dryRunFlag]))
+
+  const cached = tc.find(TOOL_NAME, version, process.arch)
+  if (cached) {
+    core.info(`Using cached flagsmith ${version} (${process.arch})`)
+    core.addPath(cached)
+    return cached
+  }
+
+  core.info(`Running the CLI's ${script} (${version})`)
   await exec(command, args)
 
   if (!fs.existsSync(binary)) {
@@ -49,14 +45,25 @@ export async function installCli(requested: string): Promise<string> {
     )
   }
 
-  if (!version) {
-    core.addPath(binDir)
-    return binDir
-  }
-
   const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
   core.addPath(dir)
   return dir
+}
+
+/** The version a dry run reports it would install. */
+export function dryRunReport(output: string): string {
+  const version = /^would install \S+ (\S+)/m.exec(output)?.[1]
+  if (!version) {
+    throw new Error(
+      `the installer's dry run did not report a version: ${output.replace(/\s+/g, ' ').trim().slice(0, 200)}`,
+    )
+  }
+  return version
+}
+
+async function dryRunVersion(command: string, args: string[]): Promise<string> {
+  const { stdout } = await getExecOutput(command, args, { silent: true })
+  return dryRunReport(stdout)
 }
 
 /** The release tag to install, or `''` for whatever the installer defaults to. */
@@ -86,12 +93,14 @@ export function platformInstaller(
       scriptPath,
       binary: path.join(binDir, 'flagsmith.exe'),
       command: 'pwsh',
+      dryRunFlag: '-DryRun',
       args: [
         '-NoLogo',
         '-NonInteractive',
         '-File',
         scriptPath,
         ...(version ? ['-Version', version] : []),
+
         '-BinDir',
         binDir,
         '-NoModifyPath',
@@ -104,6 +113,7 @@ export function platformInstaller(
     scriptPath,
     binary: path.join(binDir, 'flagsmith'),
     command: 'sh',
+    dryRunFlag: '--dry-run',
     args: [
       scriptPath,
       ...(version ? ['--version', version] : []),

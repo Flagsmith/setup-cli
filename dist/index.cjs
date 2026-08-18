@@ -14826,7 +14826,7 @@ var require_util4 = __commonJS({
     var { getEncoding } = require_encoding();
     var { serializeAMimeType, parseMIMEType } = require_data_url();
     var { types } = require("node:util");
-    var { StringDecoder } = require("string_decoder");
+    var { StringDecoder: StringDecoder2 } = require("string_decoder");
     var { btoa } = require("node:buffer");
     var staticPropertyDescriptors = {
       enumerable: true,
@@ -14917,7 +14917,7 @@ var require_util4 = __commonJS({
             dataURL += serializeAMimeType(parsed);
           }
           dataURL += ";base64,";
-          const decoder = new StringDecoder("latin1");
+          const decoder = new StringDecoder2("latin1");
           for (const chunk of bytes) {
             dataURL += btoa(decoder.write(chunk));
           }
@@ -14946,7 +14946,7 @@ var require_util4 = __commonJS({
         }
         case "BinaryString": {
           let binaryString = "";
-          const decoder = new StringDecoder("latin1");
+          const decoder = new StringDecoder2("latin1");
           for (const chunk of bytes) {
             binaryString += decoder.write(chunk);
           }
@@ -22069,6 +22069,9 @@ var _summary = new Summary();
 // node_modules/@actions/core/lib/platform.js
 var import_os2 = __toESM(require("os"), 1);
 
+// node_modules/@actions/exec/lib/exec.js
+var import_string_decoder = require("string_decoder");
+
 // node_modules/@actions/exec/lib/toolrunner.js
 var os3 = __toESM(require("os"), 1);
 var events = __toESM(require("events"), 1);
@@ -22889,6 +22892,38 @@ function exec(commandLine, args, options) {
     return runner.exec();
   });
 }
+function getExecOutput(commandLine, args, options) {
+  return __awaiter8(this, void 0, void 0, function* () {
+    var _a, _b;
+    let stdout = "";
+    let stderr = "";
+    const stdoutDecoder = new import_string_decoder.StringDecoder("utf8");
+    const stderrDecoder = new import_string_decoder.StringDecoder("utf8");
+    const originalStdoutListener = (_a = options === null || options === void 0 ? void 0 : options.listeners) === null || _a === void 0 ? void 0 : _a.stdout;
+    const originalStdErrListener = (_b = options === null || options === void 0 ? void 0 : options.listeners) === null || _b === void 0 ? void 0 : _b.stderr;
+    const stdErrListener = (data) => {
+      stderr += stderrDecoder.write(data);
+      if (originalStdErrListener) {
+        originalStdErrListener(data);
+      }
+    };
+    const stdOutListener = (data) => {
+      stdout += stdoutDecoder.write(data);
+      if (originalStdoutListener) {
+        originalStdoutListener(data);
+      }
+    };
+    const listeners = Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.listeners), { stdout: stdOutListener, stderr: stdErrListener });
+    const exitCode = yield exec(commandLine, args, Object.assign(Object.assign({}, options), { listeners }));
+    stdout += stdoutDecoder.end();
+    stderr += stderrDecoder.end();
+    return {
+      exitCode,
+      stdout,
+      stderr
+    };
+  });
+}
 
 // node_modules/@actions/core/lib/platform.js
 var platform = import_os2.default.platform();
@@ -23245,38 +23280,42 @@ function _getCacheDirectory() {
 var REPO = "Flagsmith/flagsmith-cli";
 var TOOL_NAME = "flagsmith";
 async function installCli(requested) {
-  const version = pinnedVersion(requested);
-  if (version) {
-    const cached = find(TOOL_NAME, version, process.arch);
-    if (cached) {
-      info(`Using cached flagsmith ${version} (${process.arch})`);
-      addPath(cached);
-      return cached;
-    }
-  }
+  const pinned = pinnedVersion(requested);
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
   const binDir = path6.join(temp, "flagsmith-cli-install");
   await fs5.promises.mkdir(binDir, { recursive: true });
-  const { script, scriptPath, binary, command, args } = platformInstaller(
-    version,
-    temp,
-    binDir
-  );
-  await fetchInstaller(version || "main", script, scriptPath);
-  info(`Running the CLI's ${script}`);
+  const { script, scriptPath, binary, command, args, dryRunFlag } = platformInstaller(pinned, temp, binDir);
+  await fetchInstaller(pinned || "main", script, scriptPath);
+  const version = pinned || await dryRunVersion(command, [...args, dryRunFlag]);
+  const cached = find(TOOL_NAME, version, process.arch);
+  if (cached) {
+    info(`Using cached flagsmith ${version} (${process.arch})`);
+    addPath(cached);
+    return cached;
+  }
+  info(`Running the CLI's ${script} (${version})`);
   await exec(command, args);
   if (!fs5.existsSync(binary)) {
     throw new Error(
       `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
     );
   }
-  if (!version) {
-    addPath(binDir);
-    return binDir;
-  }
   const dir = await cacheDir(binDir, TOOL_NAME, version, process.arch);
   addPath(dir);
   return dir;
+}
+function dryRunReport(output) {
+  const version = /^would install \S+ (\S+)/m.exec(output)?.[1];
+  if (!version) {
+    throw new Error(
+      `the installer's dry run did not report a version: ${output.replace(/\s+/g, " ").trim().slice(0, 200)}`
+    );
+  }
+  return version;
+}
+async function dryRunVersion(command, args) {
+  const { stdout } = await getExecOutput(command, args, { silent: true });
+  return dryRunReport(stdout);
 }
 function pinnedVersion(requested) {
   const trimmed = requested.trim();
@@ -23293,6 +23332,7 @@ function platformInstaller(version, temp, binDir, platform2 = process.platform) 
       scriptPath: scriptPath2,
       binary: path6.join(binDir, "flagsmith.exe"),
       command: "pwsh",
+      dryRunFlag: "-DryRun",
       args: [
         "-NoLogo",
         "-NonInteractive",
@@ -23311,6 +23351,7 @@ function platformInstaller(version, temp, binDir, platform2 = process.platform) 
     scriptPath,
     binary: path6.join(binDir, "flagsmith"),
     command: "sh",
+    dryRunFlag: "--dry-run",
     args: [
       scriptPath,
       ...version ? ["--version", version] : [],
