@@ -8,7 +8,6 @@ import {
   scopedEnvName,
 } from './credential-name.js'
 import { installCli } from './install.js'
-import { resolveVersion } from './version.js'
 
 const NO_IDENTITY_WARNING =
   'This job cannot request an OIDC token, so the CLI was installed but not ' +
@@ -28,8 +27,7 @@ export async function run(): Promise<void> {
   )
   const audience = core.getInput('audience').trim()
 
-  const version = await resolveVersion(core.getInput('cli-version'))
-  await installCli(version)
+  await installCli(core.getInput('cli-version'))
 
   const provided = existingCredential(apiUrl)
   if (provided) {

@@ -23244,12 +23244,15 @@ function _getCacheDirectory() {
 // src/install.ts
 var REPO = "Flagsmith/flagsmith-cli";
 var TOOL_NAME = "flagsmith";
-async function installCli(version) {
-  const cached = find(TOOL_NAME, version, process.arch);
-  if (cached) {
-    info(`Using cached flagsmith ${version} (${process.arch})`);
-    addPath(cached);
-    return cached;
+async function installCli(requested) {
+  const version = pinnedVersion(requested);
+  if (version) {
+    const cached = find(TOOL_NAME, version, process.arch);
+    if (cached) {
+      info(`Using cached flagsmith ${version} (${process.arch})`);
+      addPath(cached);
+      return cached;
+    }
   }
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
   const binDir = path6.join(temp, "flagsmith-cli-install");
@@ -23259,18 +23262,28 @@ async function installCli(version) {
     temp,
     binDir
   );
-  await fetchInstaller(version, script, scriptPath);
-  info(`Running the CLI's ${script} (${version})`);
+  await fetchInstaller(version || "main", script, scriptPath);
+  info(`Running the CLI's ${script}`);
   await exec(command, args);
   if (!fs5.existsSync(binary)) {
     throw new Error(
       `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
     );
   }
+  if (!version) {
+    addPath(binDir);
+    return binDir;
+  }
   const dir = await cacheDir(binDir, TOOL_NAME, version, process.arch);
   addPath(dir);
-  info(`Installed flagsmith ${version} to ${dir}`);
   return dir;
+}
+function pinnedVersion(requested) {
+  const trimmed = requested.trim();
+  if (trimmed === "" || trimmed.toLowerCase() === "latest") {
+    return "";
+  }
+  return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed;
 }
 function platformInstaller(version, temp, binDir, platform2 = process.platform) {
   if (platform2 === "win32") {
@@ -23285,8 +23298,7 @@ function platformInstaller(version, temp, binDir, platform2 = process.platform) 
         "-NonInteractive",
         "-File",
         scriptPath2,
-        "-Version",
-        version,
+        ...version ? ["-Version", version] : [],
         "-BinDir",
         binDir,
         "-NoModifyPath"
@@ -23299,60 +23311,29 @@ function platformInstaller(version, temp, binDir, platform2 = process.platform) 
     scriptPath,
     binary: path6.join(binDir, "flagsmith"),
     command: "sh",
-    args: [scriptPath, "--version", version, "--bin-dir", binDir, "--no-modify-path"]
+    args: [
+      scriptPath,
+      ...version ? ["--version", version] : [],
+      "--bin-dir",
+      binDir,
+      "--no-modify-path"
+    ]
   };
 }
-function scriptUrl(version, script) {
-  return `https://raw.githubusercontent.com/${REPO}/${version}/${script}`;
+function scriptUrl(ref, script) {
+  return `https://raw.githubusercontent.com/${REPO}/${ref}/${script}`;
 }
-async function fetchInstaller(version, script, destination) {
-  const url = scriptUrl(version, script);
+async function fetchInstaller(ref, script, destination) {
+  const url = scriptUrl(ref, script);
   const http2 = new HttpClient("Flagsmith/setup-cli");
   const response = await http2.get(url);
   const body = await response.readBody();
   if (response.message.statusCode !== 200) {
     throw new Error(
-      `cannot fetch ${url} (HTTP ${response.message.statusCode}). Check that ${version} is a released version of the CLI.`
+      `cannot fetch ${url} (HTTP ${response.message.statusCode}). Check that ${ref} is a released version of the CLI.`
     );
   }
   await fs5.promises.writeFile(destination, body);
-}
-
-// src/version.ts
-async function resolveVersion(requested) {
-  const trimmed = requested.trim();
-  if (trimmed !== "" && trimmed.toLowerCase() !== "latest") {
-    return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed;
-  }
-  const url = `https://api.github.com/repos/${REPO}/releases/latest`;
-  const http2 = new HttpClient("Flagsmith/setup-cli");
-  const headers = {
-    accept: "application/vnd.github+json"
-  };
-  if (process.env.GITHUB_TOKEN) {
-    headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  }
-  const response = await http2.get(url, headers);
-  const body = await response.readBody();
-  if (response.message.statusCode !== 200) {
-    throw new Error(
-      `cannot resolve the latest ${REPO} release (HTTP ${response.message.statusCode}).`
-    );
-  }
-  let tag;
-  try {
-    tag = JSON.parse(body).tag_name;
-  } catch {
-    tag = void 0;
-  }
-  if (typeof tag !== "string" || tag === "") {
-    const snippet = body.replace(/\s+/g, " ").trim().slice(0, 200);
-    throw new Error(
-      `unexpected response from ${url}: ${snippet}. Pin cli-version instead.`
-    );
-  }
-  info(`Resolved cli-version "latest" to ${tag}`);
-  return tag;
 }
 
 // src/main.ts
@@ -23364,8 +23345,7 @@ async function run() {
     ""
   );
   const audience = getInput("audience").trim();
-  const version = await resolveVersion(getInput("cli-version"));
-  await installCli(version);
+  await installCli(getInput("cli-version"));
   const provided = existingCredential(apiUrl);
   if (provided) {
     info(`Using the credential already in the environment ($${provided}).`);

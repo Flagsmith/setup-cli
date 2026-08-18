@@ -1,8 +1,35 @@
 import { describe, expect, it } from 'vitest'
 
-import { platformInstaller, scriptUrl } from './install.js'
+import { pinnedVersion, platformInstaller, scriptUrl } from './install.js'
+
+describe('pinnedVersion', () => {
+  it.each([
+    ['v2.0.0', 'v2.0.0'],
+    ['2.0.0', 'v2.0.0'],
+    ['2.0.0-beta.3', 'v2.0.0-beta.3'],
+    ['  v1.1.0  ', 'v1.1.0'],
+    ['latest', ''],
+    ['LATEST', ''],
+    ['', ''],
+    ['  ', ''],
+  ])('%o -> %o', (input, expected) => {
+    expect(pinnedVersion(input)).toBe(expected)
+  })
+})
 
 describe('platformInstaller', () => {
+  it('omits the version switch when nothing is pinned', () => {
+    expect(platformInstaller('', '/tmp', '/tmp/bin', 'linux').args).toEqual([
+      '/tmp/install.sh',
+      '--bin-dir',
+      '/tmp/bin',
+      '--no-modify-path',
+    ])
+    expect(platformInstaller('', 'C:\\t', 'C:\\t\\bin', 'win32').args).not.toContain(
+      '-Version',
+    )
+  })
+
   it('keeps the shell installer out of $HOME and off PATH', () => {
     const { script, scriptPath, binary, command, args } = platformInstaller(
       'v2.0.0',

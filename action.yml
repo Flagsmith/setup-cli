@@ -23,8 +23,9 @@ inputs:
     default: ''
   cli-version:
     description: >-
-      Version of the CLI to install, e.g. `v2.0.0`. Defaults to the latest
-      release.
+      Version of the CLI to install, e.g. `v2.0.0`. A pinned version is kept in
+      the runner tool cache; the default installs the latest release on every
+      run.
     required: false
     default: latest
 

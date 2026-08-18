@@ -9,13 +9,24 @@ import { HttpClient } from '@actions/http-client'
 export const REPO = 'Flagsmith/flagsmith-cli'
 const TOOL_NAME = 'flagsmith'
 
-/** Install the CLI, add it to PATH, and return the directory it lives in. */
-export async function installCli(version: string): Promise<string> {
-  const cached = tc.find(TOOL_NAME, version, process.arch)
-  if (cached) {
-    core.info(`Using cached flagsmith ${version} (${process.arch})`)
-    core.addPath(cached)
-    return cached
+/**
+ * Install the CLI, add it to PATH, and return the directory it lives in.
+ *
+ * A pinned version is installed by the installer published alongside it and
+ * kept in the tool cache. An unpinned install runs the installer from `main`,
+ * whose default version is the latest release, and is not cached: the key would
+ * have to be a moving target.
+ */
+export async function installCli(requested: string): Promise<string> {
+  const version = pinnedVersion(requested)
+
+  if (version) {
+    const cached = tc.find(TOOL_NAME, version, process.arch)
+    if (cached) {
+      core.info(`Using cached flagsmith ${version} (${process.arch})`)
+      core.addPath(cached)
+      return cached
+    }
   }
 
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? '/tmp'
@@ -27,9 +38,9 @@ export async function installCli(version: string): Promise<string> {
     temp,
     binDir,
   )
-  await fetchInstaller(version, script, scriptPath)
+  await fetchInstaller(version || 'main', script, scriptPath)
 
-  core.info(`Running the CLI's ${script} (${version})`)
+  core.info(`Running the CLI's ${script}`)
   await exec(command, args)
 
   if (!fs.existsSync(binary)) {
@@ -38,10 +49,24 @@ export async function installCli(version: string): Promise<string> {
     )
   }
 
+  if (!version) {
+    core.addPath(binDir)
+    return binDir
+  }
+
   const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
   core.addPath(dir)
-  core.info(`Installed flagsmith ${version} to ${dir}`)
   return dir
+}
+
+/** The release tag to install, or `''` for whatever the installer defaults to. */
+export function pinnedVersion(requested: string): string {
+  const trimmed = requested.trim()
+  if (trimmed === '' || trimmed.toLowerCase() === 'latest') {
+    return ''
+  }
+  // Releases are tagged `vX.Y.Z`; both forms are accepted.
+  return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed
 }
 
 /**
@@ -66,8 +91,7 @@ export function platformInstaller(
         '-NonInteractive',
         '-File',
         scriptPath,
-        '-Version',
-        version,
+        ...(version ? ['-Version', version] : []),
         '-BinDir',
         binDir,
         '-NoModifyPath',
@@ -80,28 +104,34 @@ export function platformInstaller(
     scriptPath,
     binary: path.join(binDir, 'flagsmith'),
     command: 'sh',
-    args: [scriptPath, '--version', version, '--bin-dir', binDir, '--no-modify-path'],
+    args: [
+      scriptPath,
+      ...(version ? ['--version', version] : []),
+      '--bin-dir',
+      binDir,
+      '--no-modify-path',
+    ],
   }
 }
 
-/** The installer is served from the tag being installed, not from the default branch. */
-export function scriptUrl(version: string, script: string): string {
-  return `https://raw.githubusercontent.com/${REPO}/${version}/${script}`
+/** The installer is served from the ref being installed, not from a fixed branch. */
+export function scriptUrl(ref: string, script: string): string {
+  return `https://raw.githubusercontent.com/${REPO}/${ref}/${script}`
 }
 
 async function fetchInstaller(
-  version: string,
+  ref: string,
   script: string,
   destination: string,
 ): Promise<void> {
-  const url = scriptUrl(version, script)
+  const url = scriptUrl(ref, script)
   const http = new HttpClient('Flagsmith/setup-cli')
   const response = await http.get(url)
   const body = await response.readBody()
   if (response.message.statusCode !== 200) {
     throw new Error(
       `cannot fetch ${url} (HTTP ${response.message.statusCode}). ` +
-      `Check that ${version} is a released version of the CLI.`,
+      `Check that ${ref} is a released version of the CLI.`,
     )
   }
   await fs.promises.writeFile(destination, body)
