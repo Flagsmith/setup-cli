@@ -5,7 +5,6 @@ import {
   ACCESS_TOKEN_ENV,
   DEFAULT_API_URL,
   existingCredential,
-  normaliseApiUrl,
   scopedEnvName,
 } from './credential-name.js'
 import { installCli } from './install.js'
@@ -23,7 +22,10 @@ const FORK_PR_WARNING =
   'Master API key from secrets, if these runs need Flagsmith access.'
 
 export async function run(): Promise<void> {
-  const apiUrl = normaliseApiUrl(core.getInput('api-url') || DEFAULT_API_URL)
+  // A trailing slash would double up against the paths appended to this.
+  const apiUrl = (core.getInput('api-url') || DEFAULT_API_URL)
+    .trim()
+    .replace(/\/+$/, '')
   const audience = core.getInput('audience').trim()
 
   const version = await resolveVersion(

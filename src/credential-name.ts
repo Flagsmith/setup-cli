@@ -42,10 +42,6 @@ export function scopedEnvName(base: string, rawUrl: string): string {
   return `${base}_${host}`
 }
 
-export function normaliseApiUrl(rawUrl: string): string {
-  return rawUrl.trim().replace(/\/+$/, '')
-}
-
 /** A URL's host and port, lowercased. A value that is not a URL is read as a bare host. */
 export function urlHost(rawUrl: string): string {
   try {

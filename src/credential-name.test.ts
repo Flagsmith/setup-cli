@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   ACCESS_TOKEN_ENV,
   existingCredential,
-  normaliseApiUrl,
   scopedEnvName,
   urlHost,
 } from './credential-name.js'
@@ -91,16 +90,5 @@ describe('existingCredential', () => {
 
   it('treats an empty value as absent', () => {
     expect(existingCredential(DEFAULT, { FLAGSMITH_API_KEY: '' })).toBeUndefined()
-  })
-})
-
-describe('normaliseApiUrl', () => {
-  it.each([
-    ['https://api.flagsmith.com/', 'https://api.flagsmith.com'],
-    ['https://api.flagsmith.com///', 'https://api.flagsmith.com'],
-    ['  https://api.flagsmith.com  ', 'https://api.flagsmith.com'],
-    ['https://api.flagsmith.com', 'https://api.flagsmith.com'],
-  ])('%s -> %s', (input, expected) => {
-    expect(normaliseApiUrl(input)).toBe(expected)
   })
 })
