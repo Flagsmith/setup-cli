@@ -23088,12 +23088,7 @@ function urlHost(rawUrl) {
 }
 function lookupFold(env, name) {
   const wanted = name.toLowerCase();
-  for (const [key, value] of Object.entries(env)) {
-    if (key.toLowerCase() === wanted && value !== void 0 && value !== "") {
-      return key;
-    }
-  }
-  return void 0;
+  return Object.keys(env).find((key) => key.toLowerCase() === wanted && env[key]);
 }
 
 // src/install.ts
