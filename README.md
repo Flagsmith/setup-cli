@@ -38,19 +38,16 @@ jobs:
 | `access-token`  | The exchanged access token (masked). Most workflows don't need this.    |
 | `expires-in`    | Access token lifetime in seconds.                                       |
 
-## What the action exports
+## When the action skips authentication
 
-- `FLAGSMITH_API_URL` — so later steps talk to the same instance.
-- `FLAGSMITH_ACCESS_TOKEN_<HOST>` — the access token, under the CLI's host-scoped credential name. The CLI trusts the
-  unscoped `FLAGSMITH_ACCESS_TOKEN` only for `api.flagsmith.com`, so the action always exports the scoped form. Use the
-  `access-token` output if you need the raw token for something other than the CLI.
+The CLI is always installed. Authentication is skipped, with a warning, when:
 
-The CLI binary is added to `PATH` via `GITHUB_PATH`.
-
-## Without an OIDC identity
-
-If the job has no `id-token: write` permission, the action installs the CLI, warns, and does not authenticate. That
-leaves you free to supply a credential yourself:
+- the job has no `id-token: write` permission;
+- the run is a **pull request from a fork** — GitHub withholds an OIDC identity from those, and no `permissions:`
+  setting can grant one;
+- the job already carries a credential the CLI would use for this `api-url` (`FLAGSMITH_API_KEY` or
+  `FLAGSMITH_ACCESS_TOKEN`, scoped or unscoped, following the CLI's own precedence). Bring your own key and the action
+  leaves it alone:
 
 ```yaml
 - uses: Flagsmith/setup-cli@v1
@@ -58,3 +55,32 @@ leaves you free to supply a credential yourself:
   env:
     FLAGSMITH_API_KEY: ${{ secrets.FLAGSMITH_API_KEY }}
 ```
+
+## What the action exports
+
+- `FLAGSMITH_API_URL` — so later steps talk to the same instance.
+- `FLAGSMITH_ACCESS_TOKEN_<HOST>` — the access token, under the CLI's host-scoped credential name. The CLI trusts the
+  unscoped `FLAGSMITH_ACCESS_TOKEN` only for `api.flagsmith.com`, so the action always exports the scoped form. Use the
+  `access-token` output if you need the raw token for something other than the CLI.
+
+The CLI binary is added to `PATH` via `GITHUB_PATH`, and cached in the runner tool cache by version and architecture.
+
+## How it installs
+
+The action runs the CLI's own [`install.sh`/`install.ps1`](https://github.com/Flagsmith/flagsmith-cli), pinned to the
+version being installed, with `--bin-dir` and `--no-modify-path`. Platform detection, the release layout and checksum
+verification therefore live in the repository that publishes the releases, and shell profiles are left untouched.
+
+One consequence: on Linux and macOS the installer needs `curl` or `wget`. Most container images have neither
+(`ubuntu:24.04`, `node:*-slim`, `python:*-slim`; alpine has busybox `wget`), so if you run in a `container:`, add `curl`
+to the image. The action checks for this and says so before running the installer.
+
+## Development
+
+```sh
+npm ci
+npm test        # unit tests
+npm run all     # typecheck, test, and rebuild dist/
+```
+
+`dist/` is committed because GitHub runs the bundle, not `src/`. CI fails if it is stale.

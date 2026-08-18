@@ -31,153 +31,16 @@ inputs:
 outputs:
   cli-version:
     description: The CLI version that was installed.
-    value: ${{ steps.resolve.outputs.version }}
   api-url:
     description: The Flagsmith API base URL the CLI is configured against.
-    value: ${{ inputs.api-url }}
   access-token:
     description: >-
       The exchanged access token. Empty when the job has no OIDC identity. Also
       exported to the environment for the CLI to pick up, so most workflows do
       not need this.
-    value: ${{ steps.auth.outputs.access-token }}
   expires-in:
     description: Lifetime of the access token in seconds. Empty when no token was minted.
-    value: ${{ steps.auth.outputs.expires-in }}
 
 runs:
-  using: composite
-  steps:
-    - name: Resolve CLI version
-      id: resolve
-      shell: bash
-      env:
-        CLI_VERSION: ${{ inputs.cli-version }}
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        set -euo pipefail
-
-        version="$CLI_VERSION"
-        if [ -z "$version" ] || [ "$version" = latest ]; then
-          version=$(
-            curl -fsSL --retry 3 \
-              -H 'Accept: application/vnd.github+json' \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              https://api.github.com/repos/Flagsmith/flagsmith-cli/releases/latest |
-              jq -r .tag_name
-          )
-          [ -n "$version" ] && [ "$version" != null ] ||
-            { echo "::error::Could not resolve the latest flagsmith-cli release. Pin cli-version instead."; exit 1; }
-        fi
-        case "$version" in v*) ;; *) version="v$version" ;; esac
-        echo "version=$version" >>"$GITHUB_OUTPUT"
-
-    - name: Install the Flagsmith CLI
-      id: install
-      if: runner.os != 'Windows'
-      shell: bash
-      env:
-        VERSION: ${{ steps.resolve.outputs.version }}
-      run: |
-        set -euo pipefail
-        curl -fsSL --proto '=https' --tlsv1.2 --retry 3 \
-          "https://raw.githubusercontent.com/Flagsmith/flagsmith-cli/${VERSION}/install.sh" |
-          sh -s -- --version "$VERSION"
-
-    - name: Install the Flagsmith CLI (Windows)
-      id: install-windows
-      if: runner.os == 'Windows'
-      shell: pwsh
-      env:
-        VERSION: ${{ steps.resolve.outputs.version }}
-      run: |
-        $ErrorActionPreference = 'Stop'
-        $script = Invoke-RestMethod "https://raw.githubusercontent.com/Flagsmith/flagsmith-cli/$env:VERSION/install.ps1"
-        & ([scriptblock]::Create($script)) -Version $env:VERSION
-
-    - name: Exchange the OIDC token for a Flagsmith access token
-      id: auth
-      shell: bash
-      env:
-        API_URL: ${{ inputs.api-url }}
-        AUDIENCE: ${{ inputs.audience }}
-      run: |
-        set -euo pipefail
-
-        # Trailing slashes would double up in the exchange URL, and the CLI
-        # trims them too, so the host-scoped env name matches either way.
-        api_url="${API_URL%/}"
-
-        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
-          echo "::warning title=No OIDC identity::This job cannot request an OIDC token, so the CLI was installed but not authenticated. Add 'permissions: id-token: write' to the job to use a Flagsmith trust relationship."
-          exit 0
-        fi
-
-        # Ask GitHub for the ID token. Without an audience GitHub uses
-        # https://github.com/OWNER, which is what a GitHub Actions trust
-        # relationship expects.
-        id_token_url="$ACTIONS_ID_TOKEN_REQUEST_URL"
-        if [ -n "$AUDIENCE" ]; then
-          id_token_url="${id_token_url}&audience=$(jq -rn --arg a "$AUDIENCE" '@uri "\($a)"')"
-        fi
-        id_token=$(
-          curl -fsSL --retry 3 \
-            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            -H 'Accept: application/json' \
-            "$id_token_url" | jq -r .value
-        )
-        [ -n "$id_token" ] && [ "$id_token" != null ] ||
-          { echo "::error title=OIDC request failed::GitHub did not return an ID token."; exit 1; }
-
-        # Keep both tokens off the command line and out of the process table.
-        body=$(mktemp); response=$(mktemp)
-        trap 'rm -f "$body" "$response"' EXIT
-        jq -n --arg token "$id_token" '{token: $token}' >"$body"
-
-        status=$(
-          curl -sS --retry 3 -o "$response" -w '%{http_code}' \
-            -X POST "${api_url}/api/v1/auth/oidc/token/" \
-            -H 'Content-Type: application/json' \
-            -H 'Accept: application/json' \
-            --data-binary "@$body"
-        )
-        if [ "$status" != 200 ]; then
-          case "$status" in
-          401) hint="No trust relationship matched this token. Check the repository, GitHub environment, and audience on the trust relationship." ;;
-          404) hint="${api_url} has no token exchange endpoint. Check api-url, and that the instance supports trust relationships." ;;
-          429) hint="Rate limited by ${api_url}. Retry shortly." ;;
-          *) hint="Check that api-url points at a Flagsmith instance with trust relationships configured." ;;
-          esac
-          echo "::error title=Token exchange failed (HTTP ${status})::${hint}"
-          # The body is an error message, not a credential — but an HTML error
-          # page is noise, so only surface JSON, and keep it short.
-          if detail=$(jq -er 'if type == "object" then (.detail // .) else . end | tostring' "$response" 2>/dev/null); then
-            printf '%s\n' "${detail:0:500}"
-          fi
-          exit 1
-        fi
-
-        access_token=$(jq -r .access_token "$response")
-        expires_in=$(jq -r '.expires_in // empty' "$response")
-        [ -n "$access_token" ] && [ "$access_token" != null ] ||
-          { echo "::error title=Token exchange failed::No access token in the response from ${api_url}."; exit 1; }
-        echo "::add-mask::$access_token"
-
-        {
-          echo "access-token=$access_token"
-          echo "expires-in=$expires_in"
-        } >>"$GITHUB_OUTPUT"
-
-        # The CLI trusts the unscoped credential name only for its default
-        # host, so always export the host-scoped form: host lowercased, with
-        # `-` written `__`, and `.` and `:` written `_`.
-        host=$(jq -rn --arg u "$api_url" '$u | sub("^[a-zA-Z]+://"; "") | sub("/.*$"; "") | ascii_downcase')
-        scoped="FLAGSMITH_ACCESS_TOKEN_$(
-          printf '%s' "$host" | tr -d '[]' | sed -e 's/-/__/g' -e 's/[.:]/_/g'
-        )"
-        {
-          echo "FLAGSMITH_API_URL=$api_url"
-          echo "${scoped}=${access_token}"
-        } >>"$GITHUB_ENV"
-
-        echo "Authenticated against ${api_url}; access token expires in ${expires_in:-?}s."
+  using: node24
+  main: dist/index.cjs

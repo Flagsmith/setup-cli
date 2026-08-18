@@ -11,13 +11,38 @@ on:
         required: false
         default: ''
 
-env:
-  # Set the STAGING_API_URL repository variable to test the token exchange.
-  API_URL: ${{ inputs.api-url || vars.STAGING_API_URL }}
+permissions:
+  contents: read
 
 jobs:
+  build:
+    name: Typecheck, test, and check dist is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # The runner executes dist/, not src/, so a stale bundle would ship code
+      # nobody reviewed.
+      - name: Check in dist/ is up to date
+        run: |
+          npm run build
+          if ! git diff --quiet -- dist; then
+            echo '::error title=dist is stale::Run `npm run build` and commit dist/.'
+            git diff --stat -- dist
+            exit 1
+          fi
+
   auth:
-    name: Install and authenticate
+    name: Install and authenticate via OIDC
+    needs: build
+    # Set the STAGING_API_URL repository variable to test the token exchange.
+    if: vars.STAGING_API_URL != '' || inputs.api-url != ''
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -27,7 +52,7 @@ jobs:
       - uses: ./
         id: setup
         with:
-          api-url: ${{ env.API_URL }}
+          api-url: ${{ inputs.api-url || vars.STAGING_API_URL }}
       - name: Prove the CLI is installed, and we are logged in
         run: flagsmith auth status
       - name: Check the action's outputs
@@ -36,34 +61,67 @@ jobs:
           echo "installed ${{ steps.setup.outputs.cli-version }} against ${{ steps.setup.outputs.api-url }}"
           test -n '${{ steps.setup.outputs.expires-in }}'
 
-  install-only:
-    name: Install without an OIDC identity
+  install:
+    name: Install on ${{ matrix.os }}
+    needs: build
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     # No id-token permission: the CLI installs, and auth is skipped.
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: ./
       - run: flagsmith --version
         shell: bash
 
-  pinned-version:
-    name: Install a pinned version
+  install-in-container:
+    name: Install inside a container
+    needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    container: alpine:3.20
     steps:
       - uses: actions/checkout@v4
       - uses: ./
-        id: setup
+      - run: flagsmith --version
+        shell: sh
+
+  cache-and-pin:
+    name: Reuse the tool cache, and honour a pinned version
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        id: first
+        with:
+          cli-version: v2.0.0-beta.3
+      - uses: ./
+        id: second
         with:
           cli-version: v2.0.0-beta.3
       - run: |
           set -euo pipefail
           flagsmith --version
-          test '${{ steps.setup.outputs.cli-version }}' = v2.0.0-beta.3
+          test '${{ steps.second.outputs.cli-version }}' = v2.0.0-beta.3
+
+  existing-credential:
+    name: Skip the exchange when the job brings a credential
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      # Not a real key: the action must not attempt an exchange, and must not
+      # validate it either — the CLI does that when it is used.
+      FLAGSMITH_API_KEY: ser.notarealkey
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        id: setup
+      - run: |
+          set -euo pipefail
+          flagsmith --version
+          test -z '${{ steps.setup.outputs.access-token }}'
