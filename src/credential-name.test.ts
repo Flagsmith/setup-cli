@@ -8,10 +8,6 @@ import {
   urlHost,
 } from './credential-name.js'
 
-/**
- * Expectations verified against flagsmith-cli's Go `scopedEnvName`
- * (internal/cmd/envcred.go) by running both over the same inputs.
- */
 describe('scopedEnvName', () => {
   it.each([
     ['https://api.flagsmith.com', 'FLAGSMITH_ACCESS_TOKEN_api_flagsmith_com'],
@@ -28,7 +24,6 @@ describe('scopedEnvName', () => {
     ],
     // Brackets are URL syntax, not part of the name.
     ['https://[::1]:8000', 'FLAGSMITH_ACCESS_TOKEN___1_8000'],
-    // A bare host is not a URL, but people write it anyway.
     ['api.flagsmith.com', 'FLAGSMITH_ACCESS_TOKEN_api_flagsmith_com'],
   ])('%s -> %s', (url, expected) => {
     expect(scopedEnvName(ACCESS_TOKEN_ENV, url)).toBe(expected)
@@ -66,7 +61,6 @@ describe('existingCredential', () => {
   })
 
   it('ignores an unscoped key off the default host, exactly as the CLI does', () => {
-    // The CLI would ignore this, so an exchange is still needed.
     expect(existingCredential(SELF_HOSTED, { FLAGSMITH_API_KEY: 'k' })).toBeUndefined()
   })
 

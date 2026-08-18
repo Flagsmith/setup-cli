@@ -32,8 +32,6 @@ export async function run(): Promise<void> {
   )
   await installCli(version)
 
-  // A job that brought its own credential does not need an exchange, and
-  // failing one it never asked for would be gratuitous.
   const provided = existingCredential(apiUrl)
   if (provided) {
     core.info(`Using the credential already in the environment ($${provided}).`)
@@ -49,16 +47,12 @@ export async function run(): Promise<void> {
     return
   }
 
-  // Without an audience GitHub uses https://github.com/OWNER, which is what the
-  // GitHub Actions trust relationship form expects.
+  // Without an audience GitHub uses https://github.com/OWNER.
   const idToken = await core.getIDToken(audience || undefined)
   const token = await exchangeToken(apiUrl, idToken)
 
-  // Mask before the value can reach a log through any later step.
   core.setSecret(token.accessToken)
 
-  // The CLI trusts the unscoped credential name only for its default host, so
-  // always export the host-scoped form.
   core.exportVariable('FLAGSMITH_API_URL', apiUrl)
   core.exportVariable(scopedEnvName(ACCESS_TOKEN_ENV, apiUrl), token.accessToken)
 

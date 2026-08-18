@@ -9,74 +9,8 @@ export interface ExchangedToken {
   expiresIn?: number
 }
 
-/** Turn a failed exchange into something the user can act on. */
-const NO_MATCH_HINT =
-  'No trust relationship matched this token. Check the repository, GitHub ' +
-  'environment and audience configured on the trust relationship in ' +
-  'Organisation settings → API Access.'
-
-const HINTS: Record<number, (apiUrl: string) => string> = {
-  400: () =>
-    'The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new',
-  401: () => NO_MATCH_HINT,
-  403: () => NO_MATCH_HINT,
-  404: (apiUrl) =>
-    `${apiUrl} has no token exchange endpoint. Check the api-url input, and ` +
-    'that the instance is new enough to support trust relationships.',
-  429: (apiUrl) => `Rate limited by ${apiUrl}. Retry shortly.`,
-}
-
-export function exchangeFailureHint(status: number, apiUrl: string): string {
-  return (
-    HINTS[status]?.(apiUrl) ??
-    'Check that api-url points at a Flagsmith instance with trust relationships configured.'
-  )
-}
-
-/**
- * An error body is a message, not a credential, but an HTML error page is noise.
- * Surface JSON only, and keep it short.
- */
-export function errorDetail(body: string): string | undefined {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(body)
-  } catch {
-    return undefined
-  }
-  if (parsed === null || parsed === undefined) {
-    return undefined
-  }
-  const detail =
-    typeof parsed === 'object' && 'detail' in parsed
-      ? (parsed as { detail: unknown }).detail
-      : parsed
-  const text = typeof detail === 'string' ? detail : JSON.stringify(detail)
-  return text.slice(0, 500)
-}
-
-export function parseExchangeResponse(body: string): ExchangedToken {
-  let parsed: { access_token?: unknown; expires_in?: unknown }
-  try {
-    parsed = JSON.parse(body)
-  } catch {
-    throw new Error('the token exchange returned a response that is not JSON')
-  }
-  const accessToken = parsed.access_token
-  if (typeof accessToken !== 'string' || accessToken === '') {
-    throw new Error('the token exchange response contained no access token')
-  }
-  return {
-    accessToken,
-    expiresIn: typeof parsed.expires_in === 'number' ? parsed.expires_in : undefined,
-  }
-}
-
 /**
  * Exchange an OIDC token for a short-lived Flagsmith access token.
- *
- * The OIDC token goes in the request body, never on a command line or in a URL,
- * so it cannot leak through the process table or a proxy log.
  */
 export async function exchangeToken(
   apiUrl: string,
@@ -109,8 +43,6 @@ export function hasOidcIdentity(env: NodeJS.ProcessEnv = process.env): boolean {
 }
 
 /**
- * Whether this run is a pull request from a fork.
- *
  * GitHub withholds an OIDC identity from fork pull requests, and no workflow
  * permission can grant one.
  */
@@ -131,4 +63,63 @@ export function isForkPullRequest(env: NodeJS.ProcessEnv = process.env): boolean
   } catch {
     return false
   }
+}
+
+export function parseExchangeResponse(body: string): ExchangedToken {
+  let parsed: { access_token?: unknown; expires_in?: unknown }
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    throw new Error('the token exchange returned a response that is not JSON')
+  }
+  const accessToken = parsed.access_token
+  if (typeof accessToken !== 'string' || accessToken === '') {
+    throw new Error('the token exchange response contained no access token')
+  }
+  return {
+    accessToken,
+    expiresIn: typeof parsed.expires_in === 'number' ? parsed.expires_in : undefined,
+  }
+}
+
+/** The message from a JSON error body, truncated. HTML error pages yield nothing. */
+export function errorDetail(body: string): string | undefined {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return undefined
+  }
+  if (parsed === null || parsed === undefined) {
+    return undefined
+  }
+  const detail =
+    typeof parsed === 'object' && 'detail' in parsed
+      ? (parsed as { detail: unknown }).detail
+      : parsed
+  const text = typeof detail === 'string' ? detail : JSON.stringify(detail)
+  return text.slice(0, 500)
+}
+
+export function exchangeFailureHint(status: number, apiUrl: string): string {
+  return (
+    HINTS[status]?.(apiUrl) ??
+    'Check that api-url points at a Flagsmith instance with trust relationships configured.'
+  )
+}
+
+const NO_MATCH_HINT =
+  'No trust relationship matched this token. Check the repository, GitHub ' +
+  'environment and audience configured on the trust relationship in ' +
+  'Organisation settings → API Access.'
+
+const HINTS: Record<number, (apiUrl: string) => string> = {
+  400: () =>
+    'The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new',
+  401: () => NO_MATCH_HINT,
+  403: () => NO_MATCH_HINT,
+  404: (apiUrl) =>
+    `${apiUrl} has no token exchange endpoint. Check the api-url input, and ` +
+    'that the instance is new enough to support trust relationships.',
+  429: (apiUrl) => `Rate limited by ${apiUrl}. Retry shortly.`,
 }

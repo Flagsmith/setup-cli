@@ -28,12 +28,8 @@ inputs:
     required: false
     default: latest
 
-# This action has no outputs. It puts `flagsmith` on PATH and the credential in
-# the environment, and everything a workflow might have read from an output is
-# already available from the CLI itself: `flagsmith --version` for the version,
-# `flagsmith auth status` for whether authentication worked, and `flagsmith auth
-# token` if a script needs the raw credential. Exposing the access token as an
-# output would only invite copying a credential between steps and jobs.
+# This action has no outputs: `flagsmith --version`, `flagsmith auth status` and
+# `flagsmith auth token` report everything an output could carry.
 
 runs:
   using: node24

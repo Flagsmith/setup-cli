@@ -9,17 +9,45 @@ import { HttpClient } from '@actions/http-client'
 export const REPO = 'Flagsmith/flagsmith-cli'
 const TOOL_NAME = 'flagsmith'
 
+/** Install the CLI, add it to PATH, and return the directory it lives in. */
+export async function installCli(version: string): Promise<string> {
+  const cached = tc.find(TOOL_NAME, version, process.arch)
+  if (cached) {
+    core.info(`Using cached flagsmith ${version} (${process.arch})`)
+    core.addPath(cached)
+    return cached
+  }
+
+  const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? '/tmp'
+  const binDir = path.join(temp, 'flagsmith-cli-install')
+  await fs.promises.mkdir(binDir, { recursive: true })
+
+  const { script, scriptPath, binary, command, args } = platformInstaller(
+    version,
+    temp,
+    binDir,
+  )
+  await fetchInstaller(version, script, scriptPath)
+
+  core.info(`Running the CLI's ${script} (${version})`)
+  await exec(command, args)
+
+  if (!fs.existsSync(binary)) {
+    throw new Error(
+      `${script} did not produce ${path.basename(binary)} in ${binDir}. See the installer output above.`,
+    )
+  }
+
+  const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
+  core.addPath(dir)
+  core.info(`Installed flagsmith ${version} to ${dir}`)
+  return dir
+}
+
 /**
- * Installation delegates to the CLI's own installers.
- *
- * They already own platform detection, the release layout and checksum
- * verification, and they live in the repository that publishes the releases —
- * so a change to how archives are named cannot break this action. We supply
- * `--bin-dir` to keep the install out of $HOME, and `--no-modify-path` so the
- * script touches neither shell profiles nor GITHUB_PATH: PATH is ours to set,
- * after the binary is in the tool cache.
+ * `--bin-dir` keeps the install out of $HOME, and `--no-modify-path` leaves
+ * shell profiles and GITHUB_PATH alone: PATH is set here, after caching.
  */
-/** Everything platform-dependent about running the CLI's own installer. */
 export function platformInstaller(
   version: string,
   temp: string,
@@ -56,6 +84,7 @@ export function platformInstaller(
   }
 }
 
+/** The installer is served from the tag being installed, not from the default branch. */
 export function scriptUrl(version: string, script: string): string {
   return `https://raw.githubusercontent.com/${REPO}/${version}/${script}`
 }
@@ -76,48 +105,4 @@ async function fetchInstaller(
     )
   }
   await fs.promises.writeFile(destination, body)
-}
-
-/**
- * Install the CLI and add it to PATH, reusing the runner tool cache when this
- * version has already been installed.
- *
- * The cache is keyed on the concrete version and the raw `process.arch`, so no
- * GOOS/GOARCH mapping is needed here — the installer does that.
- */
-export async function installCli(version: string): Promise<string> {
-  const cached = tc.find(TOOL_NAME, version, process.arch)
-  if (cached) {
-    core.info(`Using cached flagsmith ${version} (${process.arch})`)
-    core.addPath(cached)
-    return cached
-  }
-
-  const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? '/tmp'
-  const binDir = path.join(temp, 'flagsmith-cli-install')
-  await fs.promises.mkdir(binDir, { recursive: true })
-
-  const { script, scriptPath, binary, command, args } = platformInstaller(
-    version,
-    temp,
-    binDir,
-  )
-
-  // The installer is fetched here rather than piped from curl, so the job needs
-  // no downloader of its own for this step.
-  await fetchInstaller(version, script, scriptPath)
-
-  core.info(`Running the CLI's ${script} (${version})`)
-  await exec(command, args)
-
-  if (!fs.existsSync(binary)) {
-    throw new Error(
-      `${script} did not produce ${path.basename(binary)} in ${binDir}. See the installer output above.`,
-    )
-  }
-
-  const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
-  core.addPath(dir)
-  core.info(`Installed flagsmith ${version} to ${dir}`)
-  return dir
 }

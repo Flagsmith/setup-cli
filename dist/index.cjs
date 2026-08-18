@@ -22983,47 +22983,6 @@ function getIDToken(aud) {
 // src/auth.ts
 var fs3 = __toESM(require("node:fs"), 1);
 var EXCHANGE_PATH = "/api/v1/auth/oidc/token/";
-var NO_MATCH_HINT = "No trust relationship matched this token. Check the repository, GitHub environment and audience configured on the trust relationship in Organisation settings \u2192 API Access.";
-var HINTS = {
-  400: () => "The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new",
-  401: () => NO_MATCH_HINT,
-  403: () => NO_MATCH_HINT,
-  404: (apiUrl) => `${apiUrl} has no token exchange endpoint. Check the api-url input, and that the instance is new enough to support trust relationships.`,
-  429: (apiUrl) => `Rate limited by ${apiUrl}. Retry shortly.`
-};
-function exchangeFailureHint(status, apiUrl) {
-  return HINTS[status]?.(apiUrl) ?? "Check that api-url points at a Flagsmith instance with trust relationships configured.";
-}
-function errorDetail(body) {
-  let parsed;
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    return void 0;
-  }
-  if (parsed === null || parsed === void 0) {
-    return void 0;
-  }
-  const detail = typeof parsed === "object" && "detail" in parsed ? parsed.detail : parsed;
-  const text = typeof detail === "string" ? detail : JSON.stringify(detail);
-  return text.slice(0, 500);
-}
-function parseExchangeResponse(body) {
-  let parsed;
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    throw new Error("the token exchange returned a response that is not JSON");
-  }
-  const accessToken = parsed.access_token;
-  if (typeof accessToken !== "string" || accessToken === "") {
-    throw new Error("the token exchange response contained no access token");
-  }
-  return {
-    accessToken,
-    expiresIn: typeof parsed.expires_in === "number" ? parsed.expires_in : void 0
-  };
-}
 async function exchangeToken(apiUrl, idToken, http2 = new HttpClient("Flagsmith/setup-cli")) {
   const url = `${apiUrl}${EXCHANGE_PATH}`;
   const response = await http2.post(url, JSON.stringify({ token: idToken }), {
@@ -23062,37 +23021,52 @@ function isForkPullRequest(env = process.env) {
     return false;
   }
 }
+function parseExchangeResponse(body) {
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    throw new Error("the token exchange returned a response that is not JSON");
+  }
+  const accessToken = parsed.access_token;
+  if (typeof accessToken !== "string" || accessToken === "") {
+    throw new Error("the token exchange response contained no access token");
+  }
+  return {
+    accessToken,
+    expiresIn: typeof parsed.expires_in === "number" ? parsed.expires_in : void 0
+  };
+}
+function errorDetail(body) {
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return void 0;
+  }
+  if (parsed === null || parsed === void 0) {
+    return void 0;
+  }
+  const detail = typeof parsed === "object" && "detail" in parsed ? parsed.detail : parsed;
+  const text = typeof detail === "string" ? detail : JSON.stringify(detail);
+  return text.slice(0, 500);
+}
+function exchangeFailureHint(status, apiUrl) {
+  return HINTS[status]?.(apiUrl) ?? "Check that api-url points at a Flagsmith instance with trust relationships configured.";
+}
+var NO_MATCH_HINT = "No trust relationship matched this token. Check the repository, GitHub environment and audience configured on the trust relationship in Organisation settings \u2192 API Access.";
+var HINTS = {
+  400: () => "The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new",
+  401: () => NO_MATCH_HINT,
+  403: () => NO_MATCH_HINT,
+  404: (apiUrl) => `${apiUrl} has no token exchange endpoint. Check the api-url input, and that the instance is new enough to support trust relationships.`,
+  429: (apiUrl) => `Rate limited by ${apiUrl}. Retry shortly.`
+};
 
 // src/credential-name.ts
 var DEFAULT_API_URL = "https://api.flagsmith.com";
 var ACCESS_TOKEN_ENV = "FLAGSMITH_ACCESS_TOKEN";
 var API_KEY_ENV = "FLAGSMITH_API_KEY";
-function urlHost(rawUrl) {
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.host !== "") {
-      return parsed.host.toLowerCase();
-    }
-  } catch {
-  }
-  return rawUrl.replace(/^\/+|\/+$/g, "").toLowerCase();
-}
-function scopedEnvName(base, rawUrl) {
-  const host = urlHost(rawUrl).replace(/[[\]]/g, "").replace(/-/g, "__").replace(/[.:]/g, "_");
-  return `${base}_${host}`;
-}
-function normaliseApiUrl(rawUrl) {
-  return rawUrl.trim().replace(/\/+$/, "");
-}
-function lookupFold(env, name) {
-  const wanted = name.toLowerCase();
-  for (const [key, value] of Object.entries(env)) {
-    if (key.toLowerCase() === wanted && value !== void 0 && value !== "") {
-      return key;
-    }
-  }
-  return void 0;
-}
 function existingCredential(apiUrl, env = process.env) {
   const isDefaultHost = urlHost(apiUrl) === urlHost(DEFAULT_API_URL);
   for (const base of [API_KEY_ENV, ACCESS_TOKEN_ENV]) {
@@ -23105,6 +23079,32 @@ function existingCredential(apiUrl, env = process.env) {
       if (unscoped) {
         return unscoped;
       }
+    }
+  }
+  return void 0;
+}
+function scopedEnvName(base, rawUrl) {
+  const host = urlHost(rawUrl).replace(/[[\]]/g, "").replace(/-/g, "__").replace(/[.:]/g, "_");
+  return `${base}_${host}`;
+}
+function normaliseApiUrl(rawUrl) {
+  return rawUrl.trim().replace(/\/+$/, "");
+}
+function urlHost(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.host !== "") {
+      return parsed.host.toLowerCase();
+    }
+  } catch {
+  }
+  return rawUrl.replace(/^\/+|\/+$/g, "").toLowerCase();
+}
+function lookupFold(env, name) {
+  const wanted = name.toLowerCase();
+  for (const [key, value] of Object.entries(env)) {
+    if (key.toLowerCase() === wanted && value !== void 0 && value !== "") {
+      return key;
     }
   }
   return void 0;
@@ -23273,6 +23273,34 @@ function _getCacheDirectory() {
 // src/install.ts
 var REPO = "Flagsmith/flagsmith-cli";
 var TOOL_NAME = "flagsmith";
+async function installCli(version) {
+  const cached = find(TOOL_NAME, version, process.arch);
+  if (cached) {
+    info(`Using cached flagsmith ${version} (${process.arch})`);
+    addPath(cached);
+    return cached;
+  }
+  const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
+  const binDir = path6.join(temp, "flagsmith-cli-install");
+  await fs5.promises.mkdir(binDir, { recursive: true });
+  const { script, scriptPath, binary, command, args } = platformInstaller(
+    version,
+    temp,
+    binDir
+  );
+  await fetchInstaller(version, script, scriptPath);
+  info(`Running the CLI's ${script} (${version})`);
+  await exec(command, args);
+  if (!fs5.existsSync(binary)) {
+    throw new Error(
+      `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
+    );
+  }
+  const dir = await cacheDir(binDir, TOOL_NAME, version, process.arch);
+  addPath(dir);
+  info(`Installed flagsmith ${version} to ${dir}`);
+  return dir;
+}
 function platformInstaller(version, temp, binDir, platform2 = process.platform) {
   if (platform2 === "win32") {
     const scriptPath2 = path6.join(temp, "install.ps1");
@@ -23317,34 +23345,6 @@ async function fetchInstaller(version, script, destination) {
     );
   }
   await fs5.promises.writeFile(destination, body);
-}
-async function installCli(version) {
-  const cached = find(TOOL_NAME, version, process.arch);
-  if (cached) {
-    info(`Using cached flagsmith ${version} (${process.arch})`);
-    addPath(cached);
-    return cached;
-  }
-  const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
-  const binDir = path6.join(temp, "flagsmith-cli-install");
-  await fs5.promises.mkdir(binDir, { recursive: true });
-  const { script, scriptPath, binary, command, args } = platformInstaller(
-    version,
-    temp,
-    binDir
-  );
-  await fetchInstaller(version, script, scriptPath);
-  info(`Running the CLI's ${script} (${version})`);
-  await exec(command, args);
-  if (!fs5.existsSync(binary)) {
-    throw new Error(
-      `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
-    );
-  }
-  const dir = await cacheDir(binDir, TOOL_NAME, version, process.arch);
-  addPath(dir);
-  info(`Installed flagsmith ${version} to ${dir}`);
-  return dir;
 }
 
 // src/version.ts

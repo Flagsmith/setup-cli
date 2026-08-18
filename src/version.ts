@@ -4,8 +4,8 @@ import { HttpClient } from '@actions/http-client'
 import { REPO } from './install.js'
 
 /**
- * Resolve the requested version to a concrete release tag, so the version is
- * reported and cached under the tag rather than under "latest".
+ * Resolve a requested version to a concrete release tag, so "latest" is
+ * reported and cached under the tag it resolved to.
  */
 export async function resolveVersion(
   requested: string,
@@ -13,7 +13,7 @@ export async function resolveVersion(
 ): Promise<string> {
   const trimmed = requested.trim()
   if (trimmed !== '' && trimmed.toLowerCase() !== 'latest') {
-    // Releases are tagged `vX.Y.Z`, and people write the version both ways.
+    // Releases are tagged `vX.Y.Z`; both forms are accepted.
     return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed
   }
 
@@ -22,7 +22,7 @@ export async function resolveVersion(
   const headers: Record<string, string> = {
     accept: 'application/vnd.github+json',
   }
-  // The workflow's token lifts us out of the shared unauthenticated rate limit.
+  // A token lifts the request out of the shared unauthenticated rate limit.
   if (token) {
     headers.authorization = `Bearer ${token}`
   }

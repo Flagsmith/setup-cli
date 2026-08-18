@@ -14,8 +14,6 @@ describe('platformInstaller', () => {
     expect(scriptPath).toBe('/tmp/install.sh')
     expect(binary).toBe('/tmp/bin/flagsmith')
     expect(command).toBe('sh')
-    // --bin-dir keeps it out of $HOME; --no-modify-path leaves shell profiles
-    // and GITHUB_PATH alone, so PATH stays ours to set after caching.
     expect(args).toEqual([
       '/tmp/install.sh',
       '--version',
@@ -50,8 +48,6 @@ describe('platformInstaller', () => {
 
 describe('scriptUrl', () => {
   it('pins the installer to the version being installed', () => {
-    // Fetching from a tag rather than main keeps the installer and the release
-    // it installs in step.
     expect(scriptUrl('v2.0.0', 'install.sh')).toBe(
       'https://raw.githubusercontent.com/Flagsmith/flagsmith-cli/v2.0.0/install.sh',
     )
