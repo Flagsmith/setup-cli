@@ -15,4 +15,4 @@ jobs:
         with:
           api-url: https://api-staging.flagsmith.com
       - run: flagsmith --version
-      - run: flagsmith flag list --project "Edge API E2E"
+      - run: flagsmith flag list --project "Edge API E2E" -e E2E
