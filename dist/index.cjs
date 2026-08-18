@@ -23005,10 +23005,11 @@ function getIDToken(aud) {
 
 // src/auth.ts
 var fs3 = __toESM(require("node:fs"), 1);
-var EXCHANGE_PATH = "/api/v1/auth/oidc/token/";
-async function exchangeToken(apiUrl, idToken, http2 = new HttpClient("Flagsmith/setup-cli")) {
-  const url = `${apiUrl}${EXCHANGE_PATH}`;
-  const response = await http2.post(url, JSON.stringify({ token: idToken }), {
+
+// src/http.ts
+var USER_AGENT = "Flagsmith/setup-cli";
+async function fetchOk(url, fail, postJson, http2 = new HttpClient(USER_AGENT)) {
+  const response = postJson === void 0 ? await http2.get(url) : await http2.post(url, postJson, {
     "content-type": "application/json",
     accept: "application/json"
   });
@@ -23016,11 +23017,21 @@ async function exchangeToken(apiUrl, idToken, http2 = new HttpClient("Flagsmith/
   const status = response.message.statusCode ?? 0;
   if (status !== 200) {
     const snippet = body.replace(/\s+/g, " ").trim().slice(0, 500);
-    throw new Error(
-      `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}` + (snippet ? `
-Response body: ${snippet}` : "")
-    );
+    throw new Error(fail(status) + (snippet ? `
+Response body: ${snippet}` : ""));
   }
+  return body;
+}
+
+// src/auth.ts
+var EXCHANGE_PATH = "/api/v1/auth/oidc/token/";
+async function exchangeToken(apiUrl, idToken, http2) {
+  const body = await fetchOk(
+    `${apiUrl}${EXCHANGE_PATH}`,
+    (status) => `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}`,
+    JSON.stringify({ token: idToken }),
+    http2
+  );
   return parseExchangeResponse(body);
 }
 function hasOidcIdentity(env = process.env) {
@@ -23358,14 +23369,10 @@ function scriptUrl(ref, script) {
 }
 async function fetchInstaller(ref, script, destination) {
   const url = scriptUrl(ref, script);
-  const http2 = new HttpClient("Flagsmith/setup-cli");
-  const response = await http2.get(url);
-  const body = await response.readBody();
-  if (response.message.statusCode !== 200) {
-    throw new Error(
-      `cannot fetch ${url} (HTTP ${response.message.statusCode}). Check that ${ref} is a released version of the CLI.`
-    );
-  }
+  const body = await fetchOk(
+    url,
+    (status) => `cannot fetch ${url} (HTTP ${status}). Check that ${ref} is a released version of the CLI.`
+  );
   await fs5.promises.writeFile(destination, body);
 }
 

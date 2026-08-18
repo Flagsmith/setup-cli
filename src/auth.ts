@@ -1,6 +1,8 @@
 import * as fs from 'node:fs'
 
-import { HttpClient } from '@actions/http-client'
+import type { HttpClient } from '@actions/http-client'
+
+import { fetchOk } from './http.js'
 
 export const EXCHANGE_PATH = '/api/v1/auth/oidc/token/'
 
@@ -15,27 +17,15 @@ export interface ExchangedToken {
 export async function exchangeToken(
   apiUrl: string,
   idToken: string,
-  http: HttpClient = new HttpClient('Flagsmith/setup-cli'),
+  http?: HttpClient,
 ): Promise<ExchangedToken> {
-  const url = `${apiUrl}${EXCHANGE_PATH}`
-  const response = await http.post(url, JSON.stringify({ token: idToken }), {
-    'content-type': 'application/json',
-    accept: 'application/json',
-  })
-  const body = await response.readBody()
-  const status = response.message.statusCode ?? 0
-
-  if (status !== 200) {
-    // Show the body whatever its content type, on one line. When something
-    // between the runner and the instance answers instead of Flagsmith — a
-    // proxy demanding authentication, a captive portal, a load balancer with no
-    // backend — an HTML page is the only description of the failure there is.
-    const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 500)
-    throw new Error(
-      `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}` +
-      (snippet ? `\nResponse body: ${snippet}` : ''),
-    )
-  }
+  const body = await fetchOk(
+    `${apiUrl}${EXCHANGE_PATH}`,
+    (status) =>
+      `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}`,
+    JSON.stringify({ token: idToken }),
+    http,
+  )
   return parseExchangeResponse(body)
 }
 

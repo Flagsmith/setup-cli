@@ -1,0 +1,29 @@
+import { HttpClient } from '@actions/http-client'
+
+export const USER_AGENT = 'Flagsmith/setup-cli'
+
+/**
+ * The body of a 200 response, or a throw of the caller's message with a
+ * one-line snippet of the body appended.
+ */
+export async function fetchOk(
+  url: string,
+  fail: (status: number) => string,
+  postJson?: string,
+  http: HttpClient = new HttpClient(USER_AGENT),
+): Promise<string> {
+  const response =
+    postJson === undefined
+      ? await http.get(url)
+      : await http.post(url, postJson, {
+        'content-type': 'application/json',
+        accept: 'application/json',
+      })
+  const body = await response.readBody()
+  const status = response.message.statusCode ?? 0
+  if (status !== 200) {
+    const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 500)
+    throw new Error(fail(status) + (snippet ? `\nResponse body: ${snippet}` : ''))
+  }
+  return body
+}

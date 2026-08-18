@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import * as core from '@actions/core'
 import { exec, getExecOutput } from '@actions/exec'
 import * as tc from '@actions/tool-cache'
-import { HttpClient } from '@actions/http-client'
+import { fetchOk } from './http.js'
 
 export const REPO = 'Flagsmith/flagsmith-cli'
 const TOOL_NAME = 'flagsmith'
@@ -140,14 +140,10 @@ async function fetchInstaller(
   destination: string,
 ): Promise<void> {
   const url = scriptUrl(ref, script)
-  const http = new HttpClient('Flagsmith/setup-cli')
-  const response = await http.get(url)
-  const body = await response.readBody()
-  if (response.message.statusCode !== 200) {
-    throw new Error(
-      `cannot fetch ${url} (HTTP ${response.message.statusCode}). ` +
-      `Check that ${ref} is a released version of the CLI.`,
-    )
-  }
+  const body = await fetchOk(
+    url,
+    (status) =>
+      `cannot fetch ${url} (HTTP ${status}). Check that ${ref} is a released version of the CLI.`,
+  )
   await fs.promises.writeFile(destination, body)
 }
