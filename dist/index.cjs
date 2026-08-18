@@ -23046,7 +23046,7 @@ function hasOidcIdentity(env = process.env) {
     env.ACTIONS_ID_TOKEN_REQUEST_URL && env.ACTIONS_ID_TOKEN_REQUEST_TOKEN
   );
 }
-function isForkPullRequest(env = process.env, readEvent = (p) => fs3.readFileSync(p, "utf8")) {
+function isForkPullRequest(env = process.env) {
   if (env.GITHUB_EVENT_NAME !== "pull_request" && env.GITHUB_EVENT_NAME !== "pull_request_target") {
     return false;
   }
@@ -23055,7 +23055,7 @@ function isForkPullRequest(env = process.env, readEvent = (p) => fs3.readFileSyn
     return false;
   }
   try {
-    const event = JSON.parse(readEvent(eventPath));
+    const event = JSON.parse(fs3.readFileSync(eventPath, "utf8"));
     const head = event.pull_request?.head?.repo?.full_name;
     return typeof head === "string" && head !== "" && head !== env.GITHUB_REPOSITORY;
   } catch {

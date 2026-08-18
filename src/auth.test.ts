@@ -1,6 +1,9 @@
 import { HttpClient } from '@actions/http-client'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer, type Server } from 'node:http'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import * as path from 'node:path'
 import type { AddressInfo } from 'node:net'
 
 import {
@@ -97,59 +100,57 @@ describe('hasOidcIdentity', () => {
 })
 
 describe('isForkPullRequest', () => {
-  const event = (headRepo: string) =>
-    JSON.stringify({ pull_request: { head: { repo: { full_name: headRepo } } } })
+  const eventFile = (headRepo: string) => {
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'setup-cli-')), 'event.json')
+    writeFileSync(
+      file,
+      JSON.stringify({ pull_request: { head: { repo: { full_name: headRepo } } } }),
+    )
+    return file
+  }
+
+  const base = { GITHUB_REPOSITORY: 'Flagsmith/setup-cli' }
 
   it('is true when the head repo differs from the base repo', () => {
     expect(
-      isForkPullRequest(
-        {
-          GITHUB_EVENT_NAME: 'pull_request',
-          GITHUB_EVENT_PATH: '/event.json',
-          GITHUB_REPOSITORY: 'Flagsmith/setup-cli',
-        },
-        () => event('someone/setup-cli'),
-      ),
+      isForkPullRequest({
+        ...base,
+        GITHUB_EVENT_NAME: 'pull_request',
+        GITHUB_EVENT_PATH: eventFile('someone/setup-cli'),
+      }),
     ).toBe(true)
   })
 
   it('is false for a branch pull request in the same repo', () => {
     expect(
-      isForkPullRequest(
-        {
-          GITHUB_EVENT_NAME: 'pull_request',
-          GITHUB_EVENT_PATH: '/event.json',
-          GITHUB_REPOSITORY: 'Flagsmith/setup-cli',
-        },
-        () => event('Flagsmith/setup-cli'),
-      ),
+      isForkPullRequest({
+        ...base,
+        GITHUB_EVENT_NAME: 'pull_request',
+        GITHUB_EVENT_PATH: eventFile('Flagsmith/setup-cli'),
+      }),
     ).toBe(false)
   })
 
   it('is false on a push', () => {
     expect(
-      isForkPullRequest({ GITHUB_EVENT_NAME: 'push' }, () => event('x/y')),
+      isForkPullRequest({
+        ...base,
+        GITHUB_EVENT_NAME: 'push',
+        GITHUB_EVENT_PATH: eventFile('someone/setup-cli'),
+      }),
     ).toBe(false)
   })
 
   it('does not throw when the event payload is missing or unreadable', () => {
     expect(
-      isForkPullRequest({
-        GITHUB_EVENT_NAME: 'pull_request',
-        GITHUB_REPOSITORY: 'Flagsmith/setup-cli',
-      }),
+      isForkPullRequest({ ...base, GITHUB_EVENT_NAME: 'pull_request' }),
     ).toBe(false)
     expect(
-      isForkPullRequest(
-        {
-          GITHUB_EVENT_NAME: 'pull_request',
-          GITHUB_EVENT_PATH: '/nope.json',
-          GITHUB_REPOSITORY: 'Flagsmith/setup-cli',
-        },
-        () => {
-          throw new Error('ENOENT')
-        },
-      ),
+      isForkPullRequest({
+        ...base,
+        GITHUB_EVENT_NAME: 'pull_request',
+        GITHUB_EVENT_PATH: '/nope.json',
+      }),
     ).toBe(false)
   })
 })

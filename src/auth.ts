@@ -114,10 +114,7 @@ export function hasOidcIdentity(env: NodeJS.ProcessEnv = process.env): boolean {
  * GitHub withholds an OIDC identity from fork pull requests, and no workflow
  * permission can grant one.
  */
-export function isForkPullRequest(
-  env: NodeJS.ProcessEnv = process.env,
-  readEvent: (path: string) => string = (p) => fs.readFileSync(p, 'utf8'),
-): boolean {
+export function isForkPullRequest(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.GITHUB_EVENT_NAME !== 'pull_request' && env.GITHUB_EVENT_NAME !== 'pull_request_target') {
     return false
   }
@@ -126,7 +123,7 @@ export function isForkPullRequest(
     return false
   }
   try {
-    const event = JSON.parse(readEvent(eventPath)) as {
+    const event = JSON.parse(fs.readFileSync(eventPath, 'utf8')) as {
       pull_request?: { head?: { repo?: { full_name?: unknown } } }
     }
     const head = event.pull_request?.head?.repo?.full_name
