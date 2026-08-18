@@ -42,17 +42,8 @@ export function scopedEnvName(base: string, rawUrl: string): string {
   return `${base}_${host}`
 }
 
-/** A URL's host and port, lowercased. A value that is not a URL is read as a bare host. */
 export function urlHost(rawUrl: string): string {
-  try {
-    const parsed = new URL(rawUrl)
-    if (parsed.host !== '') {
-      return parsed.host.toLowerCase()
-    }
-  } catch {
-    // Fall through to the bare-host reading.
-  }
-  return rawUrl.replace(/^\/+|\/+$/g, '').toLowerCase()
+  return new URL(rawUrl).host.toLowerCase()
 }
 
 function lookupFold(env: NodeJS.ProcessEnv, name: string): string | undefined {

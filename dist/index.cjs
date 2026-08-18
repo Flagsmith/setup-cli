@@ -23074,14 +23074,7 @@ function scopedEnvName(base, rawUrl) {
   return `${base}_${host}`;
 }
 function urlHost(rawUrl) {
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.host !== "") {
-      return parsed.host.toLowerCase();
-    }
-  } catch {
-  }
-  return rawUrl.replace(/^\/+|\/+$/g, "").toLowerCase();
+  return new URL(rawUrl).host.toLowerCase();
 }
 function lookupFold(env, name) {
   const wanted = name.toLowerCase();
@@ -23365,7 +23358,10 @@ async function resolveVersion(requested, token) {
 var NO_IDENTITY_WARNING = "This job cannot request an OIDC token, so the CLI was installed but not authenticated. Add `permissions: id-token: write` to the job to use a Flagsmith trust relationship, or set FLAGSMITH_API_KEY yourself.";
 var FORK_PR_WARNING = "Pull requests from forks are not given an OIDC identity by GitHub, so the CLI was installed but not authenticated. This cannot be granted with `permissions:`. Use `pull_request_target` with a reviewed workflow, or a Master API key from secrets, if these runs need Flagsmith access.";
 async function run() {
-  const apiUrl = (getInput("api-url") || DEFAULT_API_URL).trim().replace(/\/+$/, "");
+  const apiUrl = new URL(getInput("api-url") || DEFAULT_API_URL).href.replace(
+    /\/$/,
+    ""
+  );
   const audience = getInput("audience").trim();
   const version = await resolveVersion(
     getInput("cli-version"),

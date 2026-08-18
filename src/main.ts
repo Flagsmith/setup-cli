@@ -23,9 +23,10 @@ const FORK_PR_WARNING =
 
 export async function run(): Promise<void> {
   // A trailing slash would double up against the paths appended to this.
-  const apiUrl = (core.getInput('api-url') || DEFAULT_API_URL)
-    .trim()
-    .replace(/\/+$/, '')
+  const apiUrl = new URL(core.getInput('api-url') || DEFAULT_API_URL).href.replace(
+    /\/$/,
+    '',
+  )
   const audience = core.getInput('audience').trim()
 
   const version = await resolveVersion(

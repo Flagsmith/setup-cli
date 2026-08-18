@@ -23,7 +23,6 @@ describe('scopedEnvName', () => {
     ],
     // Brackets are URL syntax, not part of the name.
     ['https://[::1]:8000', 'FLAGSMITH_ACCESS_TOKEN___1_8000'],
-    ['api.flagsmith.com', 'FLAGSMITH_ACCESS_TOKEN_api_flagsmith_com'],
   ])('%s -> %s', (url, expected) => {
     expect(scopedEnvName(ACCESS_TOKEN_ENV, url)).toBe(expected)
   })
@@ -38,10 +37,6 @@ describe('scopedEnvName', () => {
 describe('urlHost', () => {
   it('keeps the port and drops the path', () => {
     expect(urlHost('https://example.com:8443/api/v1/')).toBe('example.com:8443')
-  })
-
-  it('treats a bare host with a trailing slash as a host', () => {
-    expect(urlHost('example.com/')).toBe('example.com')
   })
 })
 
