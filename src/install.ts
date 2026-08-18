@@ -27,7 +27,14 @@ export async function installCli(requested: string): Promise<string> {
     platformInstaller(pinned, temp, binDir)
   await fetchInstaller(pinned || 'main', script, scriptPath)
 
-  const version = pinned || (await dryRunVersion(command, [...args, dryRunFlag]))
+  let version = pinned
+  if (!version) {
+    const { stdout } = await getExecOutput(command, [...args, dryRunFlag], {
+      silent: true,
+      ignoreReturnCode: true,
+    })
+    version = /^would install \S+ (\S+)/m.exec(stdout)?.[1] ?? ''
+  }
 
   const cached = version && tc.find(TOOL_NAME, version, process.arch)
   if (cached) {
@@ -46,7 +53,7 @@ export async function installCli(requested: string): Promise<string> {
   }
 
   // An unreadable dry run costs the tool cache, not the install.
-  if (!version) {
+  if (version === '') {
     core.addPath(binDir)
     return binDir
   }
@@ -54,22 +61,6 @@ export async function installCli(requested: string): Promise<string> {
   const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
   core.addPath(dir)
   return dir
-}
-
-/** The version a dry run reports it would install, if it reported one. */
-export function dryRunReport(output: string): string | undefined {
-  return /^would install \S+ (\S+)/m.exec(output)?.[1]
-}
-
-async function dryRunVersion(
-  command: string,
-  args: string[],
-): Promise<string | undefined> {
-  const { stdout } = await getExecOutput(command, args, {
-    silent: true,
-    ignoreReturnCode: true,
-  })
-  return dryRunReport(stdout)
 }
 
 /** The release tag to install, or `''` for whatever the installer defaults to. */
