@@ -1,0 +1,69 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      api-url:
+        description: Flagsmith API base URL to test against.
+        required: false
+        default: ''
+
+env:
+  # Set the STAGING_API_URL repository variable to test the token exchange.
+  API_URL: ${{ inputs.api-url || vars.STAGING_API_URL }}
+
+jobs:
+  auth:
+    name: Install and authenticate
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        id: setup
+        with:
+          api-url: ${{ env.API_URL }}
+      - name: Prove the CLI is installed, and we are logged in
+        run: flagsmith auth status
+      - name: Check the action's outputs
+        run: |
+          set -euo pipefail
+          echo "installed ${{ steps.setup.outputs.cli-version }} against ${{ steps.setup.outputs.api-url }}"
+          test -n '${{ steps.setup.outputs.expires-in }}'
+
+  install-only:
+    name: Install without an OIDC identity
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # No id-token permission: the CLI installs, and auth is skipped.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+      - run: flagsmith --version
+        shell: bash
+
+  pinned-version:
+    name: Install a pinned version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        id: setup
+        with:
+          cli-version: v2.0.0-beta.3
+      - run: |
+          set -euo pipefail
+          flagsmith --version
+          test '${{ steps.setup.outputs.cli-version }}' = v2.0.0-beta.3
