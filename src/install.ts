@@ -9,13 +9,11 @@ import { HttpClient } from '@actions/http-client'
 export const REPO = 'Flagsmith/flagsmith-cli'
 const TOOL_NAME = 'flagsmith'
 
+type InstallScript = 'install.sh' | 'install.ps1'
+
 /**
- * Install the CLI, add it to PATH, and return the directory it lives in.
- *
- * A pinned version is installed by the installer published alongside it. An
- * unpinned install runs the installer from `main`, whose default version is the
- * latest release, and asks it which version that is before installing, so the
- * tool cache is keyed on a concrete tag either way.
+ * Install the CLI, add it to PATH, cache in GHA tool cache,
+ * and return the directory it lives in.
  */
 export async function installCli(requested: string): Promise<string> {
   const pinned = pinnedVersion(requested)
@@ -51,6 +49,7 @@ export async function installCli(requested: string): Promise<string> {
     )
   }
 
+  // Somehow, we didn't get the exact version from --dry-run.
   if (!version) {
     const { stdout } = await getExecOutput(binary, ['--version'], {
       silent: true,
@@ -59,11 +58,14 @@ export async function installCli(requested: string): Promise<string> {
     version = stdout.trim().split(/\s+/).pop() ?? ''
   }
 
+  // Somehow, we didn't get the exact version from --version.
+  // Succeed without caching.
   if (!version) {
     core.addPath(binDir)
     return binDir
   }
 
+  // Cache the exact version in GitHub Actions tool cache.
   const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
   core.addPath(dir)
   return dir
@@ -80,6 +82,8 @@ export function pinnedVersion(requested: string): string {
 }
 
 /**
+ * Installer script and arguments for the requested version / platform.
+ *
  * `--bin-dir` keeps the install out of $HOME, and `--no-modify-path` leaves
  * shell profiles and GITHUB_PATH alone: PATH is set here, after caching.
  */
@@ -92,7 +96,7 @@ export function platformInstaller(
   if (platform === 'win32') {
     const scriptPath = path.join(temp, 'install.ps1')
     return {
-      script: 'install.ps1',
+      script: 'install.ps1' as const,
       scriptPath,
       binary: path.join(binDir, 'flagsmith.exe'),
       command: 'pwsh',
@@ -103,7 +107,6 @@ export function platformInstaller(
         '-File',
         scriptPath,
         ...(version ? ['-Version', version] : []),
-
         '-BinDir',
         binDir,
         '-NoModifyPath',
@@ -112,7 +115,7 @@ export function platformInstaller(
   }
   const scriptPath = path.join(temp, 'install.sh')
   return {
-    script: 'install.sh',
+    script: 'install.sh' as const,
     scriptPath,
     binary: path.join(binDir, 'flagsmith'),
     command: 'sh',
@@ -127,14 +130,13 @@ export function platformInstaller(
   }
 }
 
-/** The installer is served from the ref being installed, not from a fixed branch. */
-export function scriptUrl(ref: string, script: string): string {
+export function scriptUrl(ref: string, script: InstallScript): string {
   return `https://raw.githubusercontent.com/${REPO}/${ref}/${script}`
 }
 
 async function fetchInstaller(
   ref: string,
-  script: string,
+  script: InstallScript,
   destination: string,
 ): Promise<void> {
   const url = scriptUrl(ref, script)
