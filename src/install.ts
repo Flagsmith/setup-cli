@@ -43,7 +43,6 @@ export async function installCli(requested: string): Promise<string> {
     return cached
   }
 
-  core.info('Installing Flagsmith CLI')
   await exec(command, args)
 
   if (!fs.existsSync(binary)) {
@@ -52,7 +51,7 @@ export async function installCli(requested: string): Promise<string> {
     )
   }
 
-  if (version === '') {
+  if (!version) {
     const { stdout } = await getExecOutput(binary, ['--version'], {
       silent: true,
       ignoreReturnCode: true,
@@ -60,7 +59,7 @@ export async function installCli(requested: string): Promise<string> {
     version = stdout.trim().split(/\s+/).pop() ?? ''
   }
 
-  if (version === '') {
+  if (!version) {
     core.addPath(binDir)
     return binDir
   }
