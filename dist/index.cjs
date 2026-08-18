@@ -23336,19 +23336,17 @@ async function resolveVersion(requested) {
   const body = await response.readBody();
   if (response.message.statusCode !== 200) {
     throw new Error(
-      `cannot resolve the latest ${REPO} release (HTTP ${response.message.statusCode}). Pin cli-version instead.`
+      `cannot resolve the latest ${REPO} release (HTTP ${response.message.statusCode}).`
     );
   }
   let tag;
   try {
     tag = JSON.parse(body).tag_name;
   } catch {
-    throw new Error(`unexpected response from ${url}`);
+    tag = void 0;
   }
   if (typeof tag !== "string" || tag === "") {
-    throw new Error(
-      `no tag_name in the latest ${REPO} release. Pin cli-version instead.`
-    );
+    throw new Error(`unexpected response from ${url}. Pin cli-version instead.`);
   }
   info(`Resolved cli-version "latest" to ${tag}`);
   return tag;

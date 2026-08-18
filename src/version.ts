@@ -28,8 +28,7 @@ export async function resolveVersion(requested: string): Promise<string> {
   const body = await response.readBody()
   if (response.message.statusCode !== 200) {
     throw new Error(
-      `cannot resolve the latest ${REPO} release (HTTP ${response.message.statusCode}). ` +
-        `Pin cli-version instead.`,
+      `cannot resolve the latest ${REPO} release (HTTP ${response.message.statusCode}).`
     )
   }
 
@@ -37,12 +36,10 @@ export async function resolveVersion(requested: string): Promise<string> {
   try {
     tag = (JSON.parse(body) as { tag_name?: unknown }).tag_name
   } catch {
-    throw new Error(`unexpected response from ${url}`)
+    tag = undefined
   }
   if (typeof tag !== 'string' || tag === '') {
-    throw new Error(
-      `no tag_name in the latest ${REPO} release. Pin cli-version instead.`,
-    )
+    throw new Error(`unexpected response from ${url}. Pin cli-version instead.`)
   }
   core.info(`Resolved cli-version "latest" to ${tag}`)
   return tag
