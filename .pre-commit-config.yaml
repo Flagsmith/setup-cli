@@ -1,3 +1,8 @@
+# These hooks need the repo's npm toolchain, which pre-commit.ci's image does
+# not carry. They run locally; PRs get vitest from pull-request.yml.
+ci:
+  skip: [typecheck, test, dist]
+
 repos:
   - repo: local
     hooks:
