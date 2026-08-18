@@ -10,27 +10,27 @@ export interface ExchangedToken {
 }
 
 /** Turn a failed exchange into something the user can act on. */
+const NO_MATCH_HINT =
+  'No trust relationship matched this token. Check the repository, GitHub ' +
+  'environment and audience configured on the trust relationship in ' +
+  'Organisation settings → API Access.'
+
+const HINTS: Record<number, (apiUrl: string) => string> = {
+  400: () =>
+    'The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new',
+  401: () => NO_MATCH_HINT,
+  403: () => NO_MATCH_HINT,
+  404: (apiUrl) =>
+    `${apiUrl} has no token exchange endpoint. Check the api-url input, and ` +
+    'that the instance is new enough to support trust relationships.',
+  429: (apiUrl) => `Rate limited by ${apiUrl}. Retry shortly.`,
+}
+
 export function exchangeFailureHint(status: number, apiUrl: string): string {
-  switch (status) {
-    case 400:
-      return 'The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new'
-    case 401:
-    case 403:
-      return (
-        'No trust relationship matched this token. Check the repository, ' +
-        'GitHub environment and audience configured on the trust relationship ' +
-        'in Organisation settings → API Access.'
-      )
-    case 404:
-      return (
-        `${apiUrl} has no token exchange endpoint. Check the api-url input, and ` +
-        'that the instance is new enough to support trust relationships.'
-      )
-    case 429:
-      return `Rate limited by ${apiUrl}. Retry shortly.`
-    default:
-      return `Check that api-url points at a Flagsmith instance with trust relationships configured.`
-  }
+  return (
+    HINTS[status]?.(apiUrl) ??
+    'Check that api-url points at a Flagsmith instance with trust relationships configured.'
+  )
 }
 
 /**
