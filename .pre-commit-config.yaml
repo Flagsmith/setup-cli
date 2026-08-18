@@ -1,0 +1,21 @@
+repos:
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: tsc --noEmit
+        entry: npm run typecheck
+        language: system
+        files: \.(ts|json)$
+        pass_filenames: false
+      - id: test
+        name: vitest
+        entry: npx vitest run
+        language: system
+        files: \.ts$
+        pass_filenames: false
+      - id: dist
+        name: dist matches src
+        entry: sh -c 'npm run build >/dev/null 2>&1 && git diff --exit-code dist'
+        language: system
+        files: ^(src/|package\.json|tsconfig\.json)
+        pass_filenames: false

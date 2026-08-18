@@ -205,7 +205,10 @@ describe('exchangeToken', () => {
       `${baseUrl}/missing`,
       'tok',
       new HttpClient('test'),
-    ).catch((e: Error) => e)
+    ).then(
+      () => new Error('the exchange unexpectedly succeeded'),
+      (e: Error) => e,
+    )
 
     expect(error.message).toMatch(/HTTP 404/)
     expect(error.message).toContain('Not Found')
@@ -216,7 +219,10 @@ describe('exchangeToken', () => {
       `${baseUrl}/proxy`,
       'tok',
       new HttpClient('test'),
-    ).catch((e: Error) => e)
+    ).then(
+      () => new Error('the exchange unexpectedly succeeded'),
+      (e: Error) => e,
+    )
 
     // The diagnosis is in the page, not in anything Flagsmith sent.
     expect(error.message).toContain('407 Proxy Authentication Required')
@@ -229,7 +235,10 @@ describe('exchangeToken', () => {
       `${baseUrl}/verbose`,
       'tok',
       new HttpClient('test'),
-    ).catch((e: Error) => e)
+    ).then(
+      () => new Error('the exchange unexpectedly succeeded'),
+      (e: Error) => e,
+    )
 
     expect(error.message).toContain('x'.repeat(500))
     expect(error.message).not.toContain('x'.repeat(501))
