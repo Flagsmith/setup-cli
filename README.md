@@ -31,12 +31,14 @@ jobs:
 
 ## Outputs
 
-| Output          | Description                                                             |
-| --------------- | ----------------------------------------------------------------------- |
-| `cli-version`   | The CLI version that was installed.                                     |
-| `api-url`       | The API base URL the CLI is configured against.                         |
-| `access-token`  | The exchanged access token (masked). Most workflows don't need this.    |
-| `expires-in`    | Access token lifetime in seconds.                                       |
+None. The action puts `flagsmith` on `PATH` and the credential in the environment; ask the CLI for anything else:
+
+```sh
+flagsmith --version                  # which version was installed
+flagsmith auth status                # whether authentication worked, and as whom
+flagsmith auth token                 # the raw credential, for curl and scripts
+flagsmith api api/v1/organisations/  # better: the credential never leaves the process
+```
 
 ## When the action skips authentication
 

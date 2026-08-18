@@ -50,16 +50,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./
-        id: setup
         with:
           api-url: ${{ inputs.api-url || vars.STAGING_API_URL }}
+      # The acceptance criterion from Flagsmith/actions#9.
       - name: Prove the CLI is installed, and we are logged in
         run: flagsmith auth status
-      - name: Check the action's outputs
-        run: |
-          set -euo pipefail
-          echo "installed ${{ steps.setup.outputs.cli-version }} against ${{ steps.setup.outputs.api-url }}"
-          test -n '${{ steps.setup.outputs.expires-in }}'
 
   install:
     name: Install on ${{ matrix.os }}
@@ -94,17 +89,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./
-        id: first
         with:
           cli-version: v2.0.0-beta.3
+      # The second install must hit the tool cache rather than reinstalling.
       - uses: ./
-        id: second
         with:
           cli-version: v2.0.0-beta.3
-      - run: |
-          set -euo pipefail
-          flagsmith --version
-          test '${{ steps.second.outputs.cli-version }}' = v2.0.0-beta.3
+      - run: flagsmith --version | grep -F v2.0.0-beta.3
 
   existing-credential:
     name: Skip the exchange when the job brings a credential
@@ -120,8 +111,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./
-        id: setup
-      - run: |
+      - name: The action must not have exchanged a token
+        run: |
           set -euo pipefail
           flagsmith --version
-          test -z '${{ steps.setup.outputs.access-token }}'
+          # A credential was already present, so nothing should have been minted.
+          if env | grep -q '^FLAGSMITH_ACCESS_TOKEN'; then
+            echo 'the action exported an access token it should not have'
+            exit 1
+          fi

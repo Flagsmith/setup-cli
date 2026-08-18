@@ -31,8 +31,6 @@ export async function run(): Promise<void> {
     process.env.GITHUB_TOKEN,
   )
   await installCli(version)
-  core.setOutput('cli-version', version)
-  core.setOutput('api-url', apiUrl)
 
   // A job that brought its own credential does not need an exchange, and
   // failing one it never asked for would be gratuitous.
@@ -58,8 +56,6 @@ export async function run(): Promise<void> {
 
   // Mask before the value can reach a log through any later step.
   core.setSecret(token.accessToken)
-  core.setOutput('access-token', token.accessToken)
-  core.setOutput('expires-in', token.expiresIn ?? '')
 
   // The CLI trusts the unscoped credential name only for its default host, so
   // always export the host-scoped form.

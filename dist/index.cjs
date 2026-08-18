@@ -22958,14 +22958,6 @@ function getInput(name, options) {
   }
   return val.trim();
 }
-function setOutput(name, value) {
-  const filePath = process.env["GITHUB_OUTPUT"] || "";
-  if (filePath) {
-    return issueFileCommand("OUTPUT", prepareKeyValueMessage(name, value));
-  }
-  process.stdout.write(os5.EOL);
-  issueCommand("set-output", { name }, toCommandValue(value));
-}
 function setFailed(message) {
   process.exitCode = ExitCode.Failure;
   error(message);
@@ -23438,8 +23430,6 @@ async function run() {
     process.env.GITHUB_TOKEN
   );
   await installCli(version);
-  setOutput("cli-version", version);
-  setOutput("api-url", apiUrl);
   const provided = existingCredential(apiUrl);
   if (provided) {
     info(`Using the credential already in the environment ($${provided}).`);
@@ -23456,8 +23446,6 @@ async function run() {
   const idToken = await getIDToken(audience || void 0);
   const token = await exchangeToken(apiUrl, idToken);
   setSecret(token.accessToken);
-  setOutput("access-token", token.accessToken);
-  setOutput("expires-in", token.expiresIn ?? "");
   exportVariable("FLAGSMITH_API_URL", apiUrl);
   exportVariable(scopedEnvName(ACCESS_TOKEN_ENV, apiUrl), token.accessToken);
   info(

@@ -28,18 +28,12 @@ inputs:
     required: false
     default: latest
 
-outputs:
-  cli-version:
-    description: The CLI version that was installed.
-  api-url:
-    description: The Flagsmith API base URL the CLI is configured against.
-  access-token:
-    description: >-
-      The exchanged access token. Empty when the job has no OIDC identity. Also
-      exported to the environment for the CLI to pick up, so most workflows do
-      not need this.
-  expires-in:
-    description: Lifetime of the access token in seconds. Empty when no token was minted.
+# This action has no outputs. It puts `flagsmith` on PATH and the credential in
+# the environment, and everything a workflow might have read from an output is
+# already available from the CLI itself: `flagsmith --version` for the version,
+# `flagsmith auth status` for whether authentication worked, and `flagsmith auth
+# token` if a script needs the raw credential. Exposing the access token as an
+# output would only invite copying a credential between steps and jobs.
 
 runs:
   using: node24
