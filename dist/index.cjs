@@ -23348,17 +23348,10 @@ async function installCli(version) {
 }
 
 // src/version.ts
-function normaliseVersion(version) {
-  const trimmed = version.trim();
-  return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed;
-}
-function isLatest(version) {
-  const trimmed = version.trim();
-  return trimmed === "" || trimmed.toLowerCase() === "latest";
-}
 async function resolveVersion(requested, token) {
-  if (!isLatest(requested)) {
-    return normaliseVersion(requested);
+  const trimmed = requested.trim();
+  if (trimmed !== "" && trimmed.toLowerCase() !== "latest") {
+    return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed;
   }
   const url = `https://api.github.com/repos/${REPO}/releases/latest`;
   const http2 = new HttpClient("Flagsmith/setup-cli");

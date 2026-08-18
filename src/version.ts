@@ -3,17 +3,6 @@ import { HttpClient } from '@actions/http-client'
 
 import { REPO } from './install.js'
 
-/** Releases are tagged `vX.Y.Z`, and people write the version both ways. */
-export function normaliseVersion(version: string): string {
-  const trimmed = version.trim()
-  return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed
-}
-
-export function isLatest(version: string): boolean {
-  const trimmed = version.trim()
-  return trimmed === '' || trimmed.toLowerCase() === 'latest'
-}
-
 /**
  * Resolve the requested version to a concrete release tag, so the version is
  * reported and cached under the tag rather than under "latest".
@@ -22,8 +11,10 @@ export async function resolveVersion(
   requested: string,
   token?: string,
 ): Promise<string> {
-  if (!isLatest(requested)) {
-    return normaliseVersion(requested)
+  const trimmed = requested.trim()
+  if (trimmed !== '' && trimmed.toLowerCase() !== 'latest') {
+    // Releases are tagged `vX.Y.Z`, and people write the version both ways.
+    return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed
   }
 
   const url = `https://api.github.com/repos/${REPO}/releases/latest`
