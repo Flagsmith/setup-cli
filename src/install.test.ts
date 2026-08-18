@@ -2,31 +2,21 @@ import { describe, expect, it } from 'vitest'
 
 import {
   assertDownloaderAvailable,
-  binaryName,
-  installerInvocation,
-  installerScript,
+  platformInstaller,
   scriptUrl,
 } from './install.js'
 
-describe('installerScript', () => {
-  it('uses the shell installer off Windows', () => {
-    expect(installerScript('linux')).toBe('install.sh')
-    expect(installerScript('darwin')).toBe('install.sh')
-  })
-
-  it('uses the PowerShell installer on Windows', () => {
-    expect(installerScript('win32')).toBe('install.ps1')
-  })
-})
-
-describe('installerInvocation', () => {
+describe('platformInstaller', () => {
   it('keeps the shell installer out of $HOME and off PATH', () => {
-    const { command, args } = installerInvocation(
+    const { script, scriptPath, binary, command, args } = platformInstaller(
       'v2.0.0',
-      '/tmp/install.sh',
+      '/tmp',
       '/tmp/bin',
       'linux',
     )
+    expect(script).toBe('install.sh')
+    expect(scriptPath).toBe('/tmp/install.sh')
+    expect(binary).toBe('/tmp/bin/flagsmith')
     expect(command).toBe('sh')
     // --bin-dir keeps it out of $HOME; --no-modify-path leaves shell profiles
     // and GITHUB_PATH alone, so PATH stays ours to set after caching.
@@ -41,12 +31,14 @@ describe('installerInvocation', () => {
   })
 
   it('passes the equivalent switches to the PowerShell installer', () => {
-    const { command, args } = installerInvocation(
+    const { script, binary, command, args } = platformInstaller(
       'v2.0.0',
-      'C:\\t\\install.ps1',
+      'C:\\t',
       'C:\\t\\bin',
       'win32',
     )
+    expect(script).toBe('install.ps1')
+    expect(binary).toContain('flagsmith.exe')
     expect(command).toBe('pwsh')
     expect(args).toContain('-NoModifyPath')
     expect(args).toContain('-NonInteractive')
@@ -67,16 +59,6 @@ describe('scriptUrl', () => {
     expect(scriptUrl('v2.0.0', 'install.sh')).toBe(
       'https://raw.githubusercontent.com/Flagsmith/flagsmith-cli/v2.0.0/install.sh',
     )
-  })
-})
-
-describe('binaryName', () => {
-  it.each([
-    ['linux', 'flagsmith'],
-    ['darwin', 'flagsmith'],
-    ['win32', 'flagsmith.exe'],
-  ])('%s -> %s', (platform, expected) => {
-    expect(binaryName(platform)).toBe(expected)
   })
 })
 

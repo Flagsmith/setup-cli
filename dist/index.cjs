@@ -22986,7 +22986,7 @@ var EXCHANGE_PATH = "/api/v1/auth/oidc/token/";
 function exchangeFailureHint(status, apiUrl) {
   switch (status) {
     case 400:
-      return "The instance rejected the request body. This is a bug in this action \u2014 please report it.";
+      return "The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new";
     case 401:
     case 403:
       return "No trust relationship matched this token. Check the repository, GitHub environment and audience configured on the trust relationship in Organisation settings \u2192 API Access.";
@@ -23025,7 +23025,6 @@ function parseExchangeResponse(body) {
   }
   return {
     accessToken,
-    tokenType: typeof parsed.token_type === "string" ? parsed.token_type : "Bearer",
     expiresIn: typeof parsed.expires_in === "number" ? parsed.expires_in : void 0
   };
 }
@@ -23278,19 +23277,19 @@ function _getCacheDirectory() {
 // src/install.ts
 var REPO = "Flagsmith/flagsmith-cli";
 var TOOL_NAME = "flagsmith";
-function installerScript(platform2 = process.platform) {
-  return platform2 === "win32" ? "install.ps1" : "install.sh";
-}
-function installerInvocation(version, scriptPath, binDir, platform2 = process.platform) {
+function platformInstaller(version, temp, binDir, platform2 = process.platform) {
   if (platform2 === "win32") {
+    const scriptPath2 = path6.join(temp, "install.ps1");
     return {
       script: "install.ps1",
+      scriptPath: scriptPath2,
+      binary: path6.join(binDir, "flagsmith.exe"),
       command: "pwsh",
       args: [
         "-NoLogo",
         "-NonInteractive",
         "-File",
-        scriptPath,
+        scriptPath2,
         "-Version",
         version,
         "-BinDir",
@@ -23299,24 +23298,17 @@ function installerInvocation(version, scriptPath, binDir, platform2 = process.pl
       ]
     };
   }
+  const scriptPath = path6.join(temp, "install.sh");
   return {
     script: "install.sh",
+    scriptPath,
+    binary: path6.join(binDir, "flagsmith"),
     command: "sh",
-    args: [
-      scriptPath,
-      "--version",
-      version,
-      "--bin-dir",
-      binDir,
-      "--no-modify-path"
-    ]
+    args: [scriptPath, "--version", version, "--bin-dir", binDir, "--no-modify-path"]
   };
 }
 function scriptUrl(version, script) {
   return `https://raw.githubusercontent.com/${REPO}/${version}/${script}`;
-}
-function binaryName(platform2 = process.platform) {
-  return platform2 === "win32" ? "flagsmith.exe" : "flagsmith";
 }
 async function assertDownloaderAvailable(platform2 = process.platform, which2 = commandExists) {
   if (platform2 === "win32") {
@@ -23358,16 +23350,17 @@ async function installCli(version) {
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
   const binDir = path6.join(temp, "flagsmith-cli-install");
   await fs5.promises.mkdir(binDir, { recursive: true });
-  const script = installerScript();
-  const scriptPath = path6.join(temp, script);
+  const { script, scriptPath, binary, command, args } = platformInstaller(
+    version,
+    temp,
+    binDir
+  );
   await fetchInstaller(version, script, scriptPath);
-  const { command, args } = installerInvocation(version, scriptPath, binDir);
   info(`Running the CLI's ${script} (${version})`);
   await exec(command, args);
-  const binary = path6.join(binDir, binaryName());
   if (!fs5.existsSync(binary)) {
     throw new Error(
-      `${script} did not produce ${binaryName()} in ${binDir}. See the installer output above.`
+      `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
     );
   }
   const dir = await cacheDir(binDir, TOOL_NAME, version, process.arch);

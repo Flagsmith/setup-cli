@@ -18,13 +18,12 @@ describe('parseExchangeResponse', () => {
       parseExchangeResponse(
         '{"access_token":"tok","token_type":"Bearer","expires_in":3600}',
       ),
-    ).toEqual({ accessToken: 'tok', tokenType: 'Bearer', expiresIn: 3600 })
+    ).toEqual({ accessToken: 'tok', expiresIn: 3600 })
   })
 
-  it('defaults the token type, and tolerates a missing lifetime', () => {
+  it('tolerates a missing lifetime', () => {
     expect(parseExchangeResponse('{"access_token":"tok"}')).toEqual({
       accessToken: 'tok',
-      tokenType: 'Bearer',
       expiresIn: undefined,
     })
   })
@@ -204,7 +203,6 @@ describe('exchangeToken', () => {
 
     expect(token).toEqual({
       accessToken: 'fs_access_token',
-      tokenType: 'Bearer',
       expiresIn: 3600,
     })
     const request = requests.at(-1)

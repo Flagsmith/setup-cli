@@ -19,28 +19,19 @@ const TOOL_NAME = 'flagsmith'
  * script touches neither shell profiles nor GITHUB_PATH: PATH is ours to set,
  * after the binary is in the tool cache.
  */
-export interface InstallerInvocation {
-  script: 'install.sh' | 'install.ps1'
-  command: string
-  args: string[]
-}
-
-/** The installer the CLI publishes for this platform. */
-export function installerScript(
-  platform: string = process.platform,
-): 'install.sh' | 'install.ps1' {
-  return platform === 'win32' ? 'install.ps1' : 'install.sh'
-}
-
-export function installerInvocation(
+/** Everything platform-dependent about running the CLI's own installer. */
+export function platformInstaller(
   version: string,
-  scriptPath: string,
+  temp: string,
   binDir: string,
   platform: string = process.platform,
-): InstallerInvocation {
+) {
   if (platform === 'win32') {
+    const scriptPath = path.join(temp, 'install.ps1')
     return {
       script: 'install.ps1',
+      scriptPath,
+      binary: path.join(binDir, 'flagsmith.exe'),
       command: 'pwsh',
       args: [
         '-NoLogo',
@@ -55,27 +46,18 @@ export function installerInvocation(
       ],
     }
   }
+  const scriptPath = path.join(temp, 'install.sh')
   return {
     script: 'install.sh',
+    scriptPath,
+    binary: path.join(binDir, 'flagsmith'),
     command: 'sh',
-    args: [
-      scriptPath,
-      '--version',
-      version,
-      '--bin-dir',
-      binDir,
-      '--no-modify-path',
-    ],
+    args: [scriptPath, '--version', version, '--bin-dir', binDir, '--no-modify-path'],
   }
 }
 
 export function scriptUrl(version: string, script: string): string {
   return `https://raw.githubusercontent.com/${REPO}/${version}/${script}`
-}
-
-/** The name of the installed binary on this platform. */
-export function binaryName(platform: string = process.platform): string {
-  return platform === 'win32' ? 'flagsmith.exe' : 'flagsmith'
 }
 
 export async function assertDownloaderAvailable(
@@ -141,20 +123,22 @@ export async function installCli(version: string): Promise<string> {
   const binDir = path.join(temp, 'flagsmith-cli-install')
   await fs.promises.mkdir(binDir, { recursive: true })
 
+  const { script, scriptPath, binary, command, args } = platformInstaller(
+    version,
+    temp,
+    binDir,
+  )
+
   // The installer is fetched here rather than piped from curl, so the job needs
   // no downloader of its own for this step.
-  const script = installerScript()
-  const scriptPath = path.join(temp, script)
   await fetchInstaller(version, script, scriptPath)
 
-  const { command, args } = installerInvocation(version, scriptPath, binDir)
   core.info(`Running the CLI's ${script} (${version})`)
   await exec(command, args)
 
-  const binary = path.join(binDir, binaryName())
   if (!fs.existsSync(binary)) {
     throw new Error(
-      `${script} did not produce ${binaryName()} in ${binDir}. See the installer output above.`,
+      `${script} did not produce ${path.basename(binary)} in ${binDir}. See the installer output above.`,
     )
   }
 

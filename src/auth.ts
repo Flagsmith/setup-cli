@@ -6,7 +6,6 @@ export const EXCHANGE_PATH = '/api/v1/auth/oidc/token/'
 
 export interface ExchangedToken {
   accessToken: string
-  tokenType: string
   expiresIn?: number
 }
 
@@ -14,7 +13,7 @@ export interface ExchangedToken {
 export function exchangeFailureHint(status: number, apiUrl: string): string {
   switch (status) {
     case 400:
-      return 'The instance rejected the request body. This is a bug in this action — please report it.'
+      return 'The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new'
     case 401:
     case 403:
       return (
@@ -56,9 +55,8 @@ export function errorDetail(body: string): string | undefined {
   return text.slice(0, 500)
 }
 
-/** Parse a successful exchange response. */
 export function parseExchangeResponse(body: string): ExchangedToken {
-  let parsed: { access_token?: unknown; token_type?: unknown; expires_in?: unknown }
+  let parsed: { access_token?: unknown; expires_in?: unknown }
   try {
     parsed = JSON.parse(body)
   } catch {
@@ -70,7 +68,6 @@ export function parseExchangeResponse(body: string): ExchangedToken {
   }
   return {
     accessToken,
-    tokenType: typeof parsed.token_type === 'string' ? parsed.token_type : 'Bearer',
     expiresIn: typeof parsed.expires_in === 'number' ? parsed.expires_in : undefined,
   }
 }
@@ -98,7 +95,7 @@ export async function exchangeToken(
     const detail = errorDetail(body)
     throw new Error(
       `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}` +
-        (detail ? `\nInstance said: ${detail}` : ''),
+      (detail ? `\nInstance said: ${detail}` : ''),
     )
   }
   return parseExchangeResponse(body)
@@ -115,8 +112,7 @@ export function hasOidcIdentity(env: NodeJS.ProcessEnv = process.env): boolean {
  * Whether this run is a pull request from a fork.
  *
  * GitHub withholds an OIDC identity from fork pull requests, and no workflow
- * permission can grant one — so telling those runs to add `id-token: write`
- * sends people to change something that cannot help.
+ * permission can grant one.
  */
 export function isForkPullRequest(
   env: NodeJS.ProcessEnv = process.env,
