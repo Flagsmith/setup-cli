@@ -53,13 +53,11 @@ export async function installCli(requested: string): Promise<string> {
   }
 
   if (version === '') {
-    // The installed binary is the authority when the dry run said nothing. An
-    // unstamped build reports `dev`, which must not be cached as a version.
     const { stdout } = await getExecOutput(binary, ['--version'], {
       silent: true,
       ignoreReturnCode: true,
     })
-    version = /v?\d+\.\d+\.\d+[\w.+-]*/.exec(stdout)?.[0] ?? ''
+    version = stdout.trim().split(/\s+/).pop() ?? ''
   }
 
   if (version === '') {

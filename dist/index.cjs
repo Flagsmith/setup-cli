@@ -23312,7 +23312,7 @@ async function installCli(requested) {
       silent: true,
       ignoreReturnCode: true
     });
-    version = /v?\d+\.\d+\.\d+[\w.+-]*/.exec(stdout)?.[0] ?? "";
+    version = stdout.trim().split(/\s+/).pop() ?? "";
   }
   if (version === "") {
     addPath(binDir);
