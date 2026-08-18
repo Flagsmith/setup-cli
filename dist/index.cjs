@@ -23079,7 +23079,7 @@ var HINTS = {
   400: () => "The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new",
   401: () => NO_MATCH_HINT,
   403: () => NO_MATCH_HINT,
-  404: (apiUrl) => `${apiUrl} has no token exchange endpoint. Check the api-url input, and that the instance is new enough to support trust relationships.`,
+  404: (apiUrl) => `${apiUrl} has no token exchange endpoint. Check the api-url input, and that the instance is version 2.263.0 or later, which added trust relationships.`,
   429: (apiUrl) => `Rate limited by ${apiUrl}. Retry shortly.`
 };
 
