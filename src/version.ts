@@ -7,10 +7,7 @@ import { REPO } from './install.js'
  * Resolve a requested version to a concrete release tag, so "latest" is
  * reported and cached under the tag it resolved to.
  */
-export async function resolveVersion(
-  requested: string,
-  token?: string,
-): Promise<string> {
+export async function resolveVersion(requested: string): Promise<string> {
   const trimmed = requested.trim()
   if (trimmed !== '' && trimmed.toLowerCase() !== 'latest') {
     // Releases are tagged `vX.Y.Z`; both forms are accepted.
@@ -23,8 +20,8 @@ export async function resolveVersion(
     accept: 'application/vnd.github+json',
   }
   // A token lifts the request out of the shared unauthenticated rate limit.
-  if (token) {
-    headers.authorization = `Bearer ${token}`
+  if (process.env.GITHUB_TOKEN) {
+    headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`
   }
 
   const response = await http.get(url, headers)

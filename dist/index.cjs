@@ -23319,7 +23319,7 @@ async function fetchInstaller(version, script, destination) {
 }
 
 // src/version.ts
-async function resolveVersion(requested, token) {
+async function resolveVersion(requested) {
   const trimmed = requested.trim();
   if (trimmed !== "" && trimmed.toLowerCase() !== "latest") {
     return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed;
@@ -23329,8 +23329,8 @@ async function resolveVersion(requested, token) {
   const headers = {
     accept: "application/vnd.github+json"
   };
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
+  if (process.env.GITHUB_TOKEN) {
+    headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
   const response = await http2.get(url, headers);
   const body = await response.readBody();
@@ -23363,10 +23363,7 @@ async function run() {
     ""
   );
   const audience = getInput("audience").trim();
-  const version = await resolveVersion(
-    getInput("cli-version"),
-    process.env.GITHUB_TOKEN
-  );
+  const version = await resolveVersion(getInput("cli-version"));
   await installCli(version);
   const provided = existingCredential(apiUrl);
   if (provided) {

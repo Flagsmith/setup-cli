@@ -22,17 +22,13 @@ const FORK_PR_WARNING =
   'Master API key from secrets, if these runs need Flagsmith access.'
 
 export async function run(): Promise<void> {
-  // A trailing slash would double up against the paths appended to this.
   const apiUrl = new URL(core.getInput('api-url') || DEFAULT_API_URL).href.replace(
     /\/$/,
     '',
   )
   const audience = core.getInput('audience').trim()
 
-  const version = await resolveVersion(
-    core.getInput('cli-version'),
-    process.env.GITHUB_TOKEN,
-  )
+  const version = await resolveVersion(core.getInput('cli-version'))
   await installCli(version)
 
   const provided = existingCredential(apiUrl)
@@ -61,7 +57,7 @@ export async function run(): Promise<void> {
 
   core.info(
     `Authenticated against ${apiUrl}` +
-      (token.expiresIn ? `; access token expires in ${token.expiresIn}s` : ''),
+    (token.expiresIn ? `; access token expires in ${token.expiresIn}s` : ''),
   )
 }
 
