@@ -23278,14 +23278,18 @@ function _getCacheDirectory() {
 // src/install.ts
 var REPO = "Flagsmith/flagsmith-cli";
 var TOOL_NAME = "flagsmith";
-async function installCli(requested) {
-  const pinned = pinnedVersion(requested);
-  const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
-  const binDir = path6.join(temp, "flagsmith-cli-install");
+async function installCli(requestedVersion) {
+  const pinnedVersion = parseVersionInput(requestedVersion);
+  const tempDir = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
+  const binDir = path6.join(tempDir, "flagsmith-cli-install");
   await fs5.promises.mkdir(binDir, { recursive: true });
-  const installer = platformInstaller(pinned, temp, binDir);
-  await fetchInstaller(pinned || "main", installer.script, installer.scriptPath);
-  const version = pinned || await installer.resolveVersion();
+  const installer = getInstallerForPlatform(pinnedVersion, tempDir, binDir);
+  await fetchInstallScript(
+    pinnedVersion || "main",
+    installer.script,
+    installer.scriptPath
+  );
+  const version = pinnedVersion || await installer.resolveVersion();
   const cached = version && find(TOOL_NAME, version, process.arch);
   if (cached) {
     info(`Using cached flagsmith ${version} (${process.arch})`);
@@ -23293,38 +23297,43 @@ async function installCli(requested) {
     return cached;
   }
   await installer.install();
-  if (!fs5.existsSync(installer.binary)) {
+  if (!fs5.existsSync(installer.binaryPath)) {
     throw new Error(
-      `${installer.script} did not produce ${path6.basename(installer.binary)} in ${binDir}. See the installer output above.`
+      `${installer.script} did not produce ${path6.basename(installer.binaryPath)} in ${binDir}. See the installer output above.`
     );
   }
-  const installed = version || await binaryVersion(installer.binary);
-  if (!installed) {
+  const installedVersion = version || await getVersionFromBinary(installer.binaryPath);
+  if (!installedVersion) {
     addPath(binDir);
     return binDir;
   }
-  const dir = await cacheDir(binDir, TOOL_NAME, installed, process.arch);
+  const dir = await cacheDir(
+    binDir,
+    TOOL_NAME,
+    installedVersion,
+    process.arch
+  );
   addPath(dir);
   return dir;
 }
-async function binaryVersion(binary) {
-  const { stdout } = await getExecOutput(binary, ["--version"], {
+async function getVersionFromBinary(binaryPath) {
+  const { stdout } = await getExecOutput(binaryPath, ["--version"], {
     silent: true,
     ignoreReturnCode: true
   });
   return stdout.trim().split(/\s+/).pop() ?? "";
 }
-function pinnedVersion(requested) {
-  const trimmed = requested.trim();
+function parseVersionInput(requestedVersion) {
+  const trimmed = requestedVersion.trim();
   if (trimmed === "" || trimmed.toLowerCase() === "latest") {
     return "";
   }
   return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed;
 }
-function platformInstaller(version, temp, binDir, platform2 = process.platform) {
+function getInstallerForPlatform(version, tempDir, binDir, platform2 = process.platform) {
   const windows = platform2 === "win32";
   const script = windows ? "install.ps1" : "install.sh";
-  const scriptPath = path6.join(temp, script);
+  const scriptPath = path6.join(tempDir, script);
   const command = windows ? "pwsh" : "sh";
   const args = windows ? [
     "-NoLogo",
@@ -23345,7 +23354,7 @@ function platformInstaller(version, temp, binDir, platform2 = process.platform) 
   return {
     script,
     scriptPath,
-    binary: path6.join(binDir, windows ? "flagsmith.exe" : "flagsmith"),
+    binaryPath: path6.join(binDir, windows ? "flagsmith.exe" : "flagsmith"),
     async install() {
       await exec(command, args);
     },
@@ -23362,7 +23371,7 @@ function platformInstaller(version, temp, binDir, platform2 = process.platform) 
 function scriptUrl(ref, script) {
   return `https://raw.githubusercontent.com/${REPO}/${ref}/${script}`;
 }
-async function fetchInstaller(ref, script, destination) {
+async function fetchInstallScript(ref, script, destination) {
   const url = scriptUrl(ref, script);
   const body = await fetchOrThrow(
     url,

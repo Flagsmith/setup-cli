@@ -15,18 +15,22 @@ type InstallScript = 'install.sh' | 'install.ps1'
  * Install the CLI, add it to PATH, cache in GHA tool cache,
  * and return the directory it lives in.
  */
-export async function installCli(requested: string): Promise<string> {
-  const pinned = pinnedVersion(requested)
-  const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? '/tmp'
-  const binDir = path.join(temp, 'flagsmith-cli-install')
+export async function installCli(requestedVersion: string): Promise<string> {
+  const pinnedVersion = parseVersionInput(requestedVersion)
+  const tempDir = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? '/tmp'
+  const binDir = path.join(tempDir, 'flagsmith-cli-install')
   await fs.promises.mkdir(binDir, { recursive: true })
 
-  const installer = platformInstaller(pinned, temp, binDir)
-  await fetchInstaller(pinned || 'main', installer.script, installer.scriptPath)
+  const installer = getInstallerForPlatform(pinnedVersion, tempDir, binDir)
+  await fetchInstallScript(
+    pinnedVersion || 'main',
+    installer.script,
+    installer.scriptPath,
+  )
 
   // The installer script owns version resolution: when no version is pinned,
   // a dry run names the release it would install.
-  const version = pinned || (await installer.resolveVersion())
+  const version = pinnedVersion || (await installer.resolveVersion())
 
   const cached = version && tc.find(TOOL_NAME, version, process.arch)
   if (cached) {
@@ -37,29 +41,37 @@ export async function installCli(requested: string): Promise<string> {
 
   await installer.install()
 
-  if (!fs.existsSync(installer.binary)) {
+  if (!fs.existsSync(installer.binaryPath)) {
     throw new Error(
-      `${installer.script} did not produce ${path.basename(installer.binary)} in ${binDir}. See the installer output above.`,
+      `${installer.script} did not produce ${path.basename(installer.binaryPath)} in ${binDir}. See the installer output above.`,
     )
   }
 
   // Belt and braces: if the dry run named no version, ask the binary itself.
-  const installed = version || (await binaryVersion(installer.binary))
+  const installedVersion =
+    version || (await getVersionFromBinary(installer.binaryPath))
 
-  // Succeed without caching rather than cache under a made-up key.
-  if (!installed) {
+  // The CLI is installed and will be on PATH; we only failed to learn its
+  // exact version, so skip the tool cache rather than poison it with a
+  // made-up key.
+  if (!installedVersion) {
     core.addPath(binDir)
     return binDir
   }
 
-  const dir = await tc.cacheDir(binDir, TOOL_NAME, installed, process.arch)
+  const dir = await tc.cacheDir(
+    binDir,
+    TOOL_NAME,
+    installedVersion,
+    process.arch,
+  )
   core.addPath(dir)
   return dir
 }
 
 /** What the installed binary reports as its version, or `''`. */
-async function binaryVersion(binary: string): Promise<string> {
-  const { stdout } = await getExecOutput(binary, ['--version'], {
+async function getVersionFromBinary(binaryPath: string): Promise<string> {
+  const { stdout } = await getExecOutput(binaryPath, ['--version'], {
     silent: true,
     ignoreReturnCode: true,
   })
@@ -67,8 +79,8 @@ async function binaryVersion(binary: string): Promise<string> {
 }
 
 /** The release tag to install, or `''` for whatever the installer defaults to. */
-export function pinnedVersion(requested: string): string {
-  const trimmed = requested.trim()
+export function parseVersionInput(requestedVersion: string): string {
+  const trimmed = requestedVersion.trim()
   if (trimmed === '' || trimmed.toLowerCase() === 'latest') {
     return ''
   }
@@ -80,7 +92,7 @@ export interface Installer {
   script: InstallScript
   scriptPath: string
   /** Where the installer script leaves the binary. */
-  binary: string
+  binaryPath: string
   /** Run the installer. */
   install(): Promise<void>
   /** The version a dry run of the installer would install, or `''`. */
@@ -94,15 +106,15 @@ export interface Installer {
  * shell profiles and GITHUB_PATH alone: PATH is set by the caller, after
  * caching.
  */
-export function platformInstaller(
+export function getInstallerForPlatform(
   version: string,
-  temp: string,
+  tempDir: string,
   binDir: string,
   platform: string = process.platform,
 ): Installer {
   const windows = platform === 'win32'
   const script: InstallScript = windows ? 'install.ps1' : 'install.sh'
-  const scriptPath = path.join(temp, script)
+  const scriptPath = path.join(tempDir, script)
   const command = windows ? 'pwsh' : 'sh'
   const args = windows
     ? [
@@ -125,7 +137,7 @@ export function platformInstaller(
   return {
     script,
     scriptPath,
-    binary: path.join(binDir, windows ? 'flagsmith.exe' : 'flagsmith'),
+    binaryPath: path.join(binDir, windows ? 'flagsmith.exe' : 'flagsmith'),
     async install() {
       await exec(command, args)
     },
@@ -144,7 +156,7 @@ export function scriptUrl(ref: string, script: InstallScript): string {
   return `https://raw.githubusercontent.com/${REPO}/${ref}/${script}`
 }
 
-async function fetchInstaller(
+async function fetchInstallScript(
   ref: string,
   script: InstallScript,
   destination: string,
