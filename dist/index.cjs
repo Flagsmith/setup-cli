@@ -23094,7 +23094,10 @@ var API_KEY_ENV = "FLAGSMITH_API_KEY";
 function existingCredential(apiUrl, env = process.env) {
   const isDefaultHost = urlHost(apiUrl) === urlHost(DEFAULT_API_URL);
   for (const base of [API_KEY_ENV, ACCESS_TOKEN_ENV]) {
-    const scoped = lookupFold(env, scopedEnvName(base, apiUrl));
+    const wanted = scopedEnvName(base, apiUrl).toLowerCase();
+    const scoped = Object.keys(env).find(
+      (key) => key.toLowerCase() === wanted && env[key]
+    );
     if (scoped) {
       return scoped;
     }
@@ -23110,12 +23113,6 @@ function scopedEnvName(base, rawUrl) {
 }
 function urlHost(rawUrl) {
   return new URL(rawUrl).host.toLowerCase();
-}
-function lookupFold(env, name) {
-  const wanted = name.toLowerCase();
-  return Object.keys(env).find(
-    (key) => key.toLowerCase() === wanted && env[key]
-  );
 }
 
 // src/install.ts

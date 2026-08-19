@@ -11,11 +11,14 @@ export function existingCredential(
   for (const base of [API_KEY_ENV, ACCESS_TOKEN_ENV]) {
     // Host-scoped names embed a hostname, which is itself case-insensitive,
     // so the CLI resolves them case-insensitively and this lookup must match.
-    // The unscoped form is an exact name, also matching the CLI.
-    const scoped = lookupFold(env, scopedEnvName(base, apiUrl))
+    const wanted = scopedEnvName(base, apiUrl).toLowerCase()
+    const scoped = Object.keys(env).find(
+      (key) => key.toLowerCase() === wanted && env[key],
+    )
     if (scoped) {
       return scoped
     }
+    // The unscoped form is an exact name, also matching the CLI.
     if (isDefaultHost && env[base]) {
       return base
     }
@@ -39,9 +42,3 @@ export function urlHost(rawUrl: string): string {
   return new URL(rawUrl).host.toLowerCase()
 }
 
-function lookupFold(env: NodeJS.ProcessEnv, name: string): string | undefined {
-  const wanted = name.toLowerCase()
-  return Object.keys(env).find(
-    (key) => key.toLowerCase() === wanted && env[key],
-  )
-}
