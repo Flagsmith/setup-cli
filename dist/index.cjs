@@ -23008,7 +23008,7 @@ var fs3 = __toESM(require("node:fs"), 1);
 
 // src/http.ts
 var USER_AGENT = "Flagsmith/setup-cli";
-async function fetchOk(url, errorFor, postJson, http2 = new HttpClient(USER_AGENT)) {
+async function fetchOrThrow(url, errorFor, postJson, http2 = new HttpClient(USER_AGENT)) {
   const response = postJson === void 0 ? await http2.get(url) : await http2.post(url, postJson, {
     "content-type": "application/json",
     accept: "application/json"
@@ -23028,7 +23028,7 @@ Response body: ${snippet}` : "")
 // src/auth.ts
 var EXCHANGE_PATH = "/api/v1/auth/oidc/token/";
 async function exchangeToken(apiUrl, idToken, http2) {
-  const body = await fetchOk(
+  const body = await fetchOrThrow(
     `${apiUrl}${EXCHANGE_PATH}`,
     (status) => `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}`,
     JSON.stringify({ token: idToken }),
@@ -23364,7 +23364,7 @@ function scriptUrl(ref, script) {
 }
 async function fetchInstaller(ref, script, destination) {
   const url = scriptUrl(ref, script);
-  const body = await fetchOk(
+  const body = await fetchOrThrow(
     url,
     (status) => `cannot fetch ${url} (HTTP ${status}). Check that ${ref} is a released version of the CLI.`
   );

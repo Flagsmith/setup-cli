@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 
 import type { HttpClient } from '@actions/http-client'
 
-import { fetchOk } from './http.js'
+import { fetchOrThrow } from './http.js'
 
 export const EXCHANGE_PATH = '/api/v1/auth/oidc/token/'
 
@@ -19,7 +19,7 @@ export async function exchangeToken(
   idToken: string,
   http?: HttpClient,
 ): Promise<ExchangedToken> {
-  const body = await fetchOk(
+  const body = await fetchOrThrow(
     `${apiUrl}${EXCHANGE_PATH}`,
     (status) =>
       `token exchange failed (HTTP ${status}). ${exchangeFailureHint(status, apiUrl)}`,

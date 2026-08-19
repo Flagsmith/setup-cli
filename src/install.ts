@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import * as core from '@actions/core'
 import { exec, getExecOutput } from '@actions/exec'
 import * as tc from '@actions/tool-cache'
-import { fetchOk } from './http.js'
+import { fetchOrThrow } from './http.js'
 
 export const REPO = 'Flagsmith/flagsmith-cli'
 const TOOL_NAME = 'flagsmith'
@@ -150,7 +150,7 @@ async function fetchInstaller(
   destination: string,
 ): Promise<void> {
   const url = scriptUrl(ref, script)
-  const body = await fetchOk(
+  const body = await fetchOrThrow(
     url,
     (status) =>
       `cannot fetch ${url} (HTTP ${status}). Check that ${ref} is a released version of the CLI.`,

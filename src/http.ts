@@ -7,7 +7,7 @@ export const USER_AGENT = 'Flagsmith/setup-cli'
  * response body. A non-200 status throws an error with the caller's message
  * for that status, plus a short snippet of the response body to aid debugging.
  */
-export async function fetchOk(
+export async function fetchOrThrow(
   url: string,
   errorFor: (status: number) => string,
   postJson?: string,
