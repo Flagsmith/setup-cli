@@ -4,6 +4,8 @@ Install the [Flagsmith CLI](https://github.com/Flagsmith/flagsmith-cli) in a Git
 
 ## Usage
 
+<!-- x-release-please-start-major -->
+
 ```yaml
 jobs:
   flagsmith:
@@ -16,7 +18,11 @@ jobs:
       - run: flagsmith auth status
 ```
 
+<!-- x-release-please-end -->
+
 Or, with a static key:
+
+<!-- x-release-please-start-major -->
 
 ```yaml
 jobs:
@@ -25,9 +31,12 @@ jobs:
     env:
       FLAGSMITH_API_KEY: ${{ secrets.FLAGSMITH_API_KEY }}
     steps:
-      - uses: Flagsmith/setup-cli@v1 # installs the CLI, skips the token exchange
+      # Installs the CLI and skips the token exchange:
+      - uses: Flagsmith/setup-cli@v1
       - run: flagsmith flags list # uses your key
 ```
+
+<!-- x-release-please-end -->
 
 ## Inputs
 
