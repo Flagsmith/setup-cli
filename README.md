@@ -18,11 +18,11 @@ jobs:
 
 ## Inputs
 
-| Input         | Default                     | Description                                                                                                                                                                           |
-| ------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `api-url`     | `https://api.flagsmith.com` | Flagsmith API base URL. Set this for self-hosted instances.                                                                                                                           |
-| `audience`    | GitHub's default            | The `aud` claim to request. GitHub's default is `https://github.com/OWNER`, which is what the GitHub Actions trust relationship form expects. Set it to target a specific `audience`. |
-| `cli-version` | `latest`                    | CLI version to install, e.g. `v2.0.0`.                                                                                                                                                |
+| Input         | Default                     | Description                                                                                            |
+| ------------- | --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `api-url`     | `https://api.flagsmith.com` | Flagsmith API base URL. Set this for self-hosted instances.                                            |
+| `audience`    | `https://github.com/OWNER`  | The `aud` claim to request. Only set this if your Flagsmith trust relationship uses a custom audience. |
+| `cli-version` | `latest`                    | CLI version to install, e.g. `v2.0.0`.                                                                 |
 
 ## When the action skips authentication
 

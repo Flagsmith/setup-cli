@@ -14,9 +14,9 @@ inputs:
     default: https://api.flagsmith.com
   audience:
     description: >-
-      The `aud` claim to request for the GitHub OIDC token. Leave unset to use
-      GitHub's default audience (https://github.com/OWNER). Set it to target a trust
-      relationship configured with a specific audience.
+      The `aud` claim to request for the GitHub OIDC token. Defaults to
+      GitHub's own default, https://github.com/OWNER. Only set this if your
+      Flagsmith trust relationship uses a custom audience.
     required: false
     default: ''
   cli-version:
