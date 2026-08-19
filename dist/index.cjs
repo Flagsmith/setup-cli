@@ -23017,8 +23017,10 @@ async function fetchOk(url, fail, postJson, http2 = new HttpClient(USER_AGENT)) 
   const status = response.message.statusCode ?? 0;
   if (status !== 200) {
     const snippet = body.replace(/\s+/g, " ").trim().slice(0, 500);
-    throw new Error(fail(status) + (snippet ? `
-Response body: ${snippet}` : ""));
+    throw new Error(
+      fail(status) + (snippet ? `
+Response body: ${snippet}` : "")
+    );
   }
   return body;
 }
@@ -23079,14 +23081,16 @@ var HINTS = {
   400: () => "The instance rejected the request body. This is a bug, please report it: https://github.com/Flagsmith/setup-cli/issues/new",
   401: () => NO_MATCH_HINT,
   403: () => NO_MATCH_HINT,
-  404: (apiUrl) => `${apiUrl} has no token exchange endpoint. Check the api-url input, and that the instance is version 2.263.0 or later, which added trust relationships.`,
+  404: (apiUrl) => `${apiUrl} has no token exchange endpoint. Check the api-url input, and that the instance is version 2.263.0 or later.`,
   429: (apiUrl) => `Rate limited by ${apiUrl}. Retry shortly.`
 };
 
-// src/credential-name.ts
+// src/constants.ts
 var DEFAULT_API_URL = "https://api.flagsmith.com";
 var ACCESS_TOKEN_ENV = "FLAGSMITH_ACCESS_TOKEN";
 var API_KEY_ENV = "FLAGSMITH_API_KEY";
+
+// src/credentials.ts
 function existingCredential(apiUrl, env = process.env) {
   const isDefaultHost = urlHost(apiUrl) === urlHost(DEFAULT_API_URL);
   for (const base of [API_KEY_ENV, ACCESS_TOKEN_ENV]) {
@@ -23112,7 +23116,9 @@ function urlHost(rawUrl) {
 }
 function lookupFold(env, name) {
   const wanted = name.toLowerCase();
-  return Object.keys(env).find((key) => key.toLowerCase() === wanted && env[key]);
+  return Object.keys(env).find(
+    (key) => key.toLowerCase() === wanted && env[key]
+  );
 }
 
 // src/install.ts
@@ -23380,10 +23386,9 @@ async function fetchInstaller(ref, script, destination) {
 var NO_IDENTITY_WARNING = "This job cannot request an OIDC token, so the CLI was installed but not authenticated. Add `permissions: id-token: write` to the job to use a Flagsmith trust relationship, or set FLAGSMITH_API_KEY yourself.";
 var FORK_PR_WARNING = "Pull requests from forks are not given an OIDC identity by GitHub, so the CLI was installed but not authenticated. This cannot be granted with `permissions:`. Use `pull_request_target` with a reviewed workflow, or a FLAGSMITH_API_KEY from secrets, if these runs need Flagsmith access.";
 async function run() {
-  const apiUrl = new URL(getInput("api-url") || DEFAULT_API_URL).href.replace(
-    /\/$/,
-    ""
-  );
+  const apiUrl = new URL(
+    getInput("api-url") || DEFAULT_API_URL
+  ).href.replace(/\/$/, "");
   const audience = getInput("audience").trim();
   await installCli(getInput("cli-version"));
   const provided = existingCredential(apiUrl);
@@ -23393,7 +23398,9 @@ async function run() {
   }
   if (!hasOidcIdentity()) {
     if (isForkPullRequest()) {
-      warning(FORK_PR_WARNING, { title: "No OIDC identity (fork pull request)" });
+      warning(FORK_PR_WARNING, {
+        title: "No OIDC identity (fork pull request)"
+      });
     } else {
       warning(NO_IDENTITY_WARNING, { title: "No OIDC identity" });
     }
@@ -23403,7 +23410,10 @@ async function run() {
   const token = await exchangeToken(apiUrl, idToken);
   setSecret(token.accessToken);
   exportVariable("FLAGSMITH_API_URL", apiUrl);
-  exportVariable(scopedEnvName(ACCESS_TOKEN_ENV, apiUrl), token.accessToken);
+  exportVariable(
+    scopedEnvName(ACCESS_TOKEN_ENV, apiUrl),
+    token.accessToken
+  );
   info(
     `Authenticated against ${apiUrl}` + (token.expiresIn ? `; access token expires in ${token.expiresIn}s` : "")
   );

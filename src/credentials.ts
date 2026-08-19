@@ -1,8 +1,4 @@
-export const DEFAULT_API_URL = 'https://api.flagsmith.com'
-
-export const ACCESS_TOKEN_ENV = 'FLAGSMITH_ACCESS_TOKEN'
-
-export const API_KEY_ENV = 'FLAGSMITH_API_KEY'
+import { ACCESS_TOKEN_ENV, API_KEY_ENV, DEFAULT_API_URL } from './constants.js'
 
 /**
  * The name of a credential this environment already carries for an instance.

@@ -1,12 +1,8 @@
 import * as core from '@actions/core'
 
 import { exchangeToken, hasOidcIdentity, isForkPullRequest } from './auth.js'
-import {
-  ACCESS_TOKEN_ENV,
-  DEFAULT_API_URL,
-  existingCredential,
-  scopedEnvName,
-} from './credential-name.js'
+import { ACCESS_TOKEN_ENV, DEFAULT_API_URL } from './constants.js'
+import { existingCredential, scopedEnvName } from './credentials.js'
 import { installCli } from './install.js'
 
 const NO_IDENTITY_WARNING =

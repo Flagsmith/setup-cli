@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  ACCESS_TOKEN_ENV,
-  existingCredential,
-  scopedEnvName,
-  urlHost,
-} from './credential-name.js'
+import { ACCESS_TOKEN_ENV } from './constants.js'
+import { existingCredential, scopedEnvName, urlHost } from './credentials.js'
 
 describe('scopedEnvName', () => {
   it.each([
