@@ -45,10 +45,9 @@ The action always installs the CLI, but may skip authentication if:
 - the job has no `id-token: write` permission.
 - the job already carries a credential the CLI would use for this `api-url` (`FLAGSMITH_API_KEY` or `FLAGSMITH_ACCESS_TOKEN`, scoped to provided `api-url`).
 
-## What the action exports
+## After the action runs
 
-- `FLAGSMITH_API_URL` so later steps talk to the same instance.
-- `FLAGSMITH_ACCESS_TOKEN_<HOST>` the access token, scoped to the API URL host.
+The API URL and the exchanged access token are exported to the job environment, where the CLI picks them up.
 
 The CLI binary is added to `PATH` via `GITHUB_PATH`, and cached in the runner tool cache by version and architecture.
 
