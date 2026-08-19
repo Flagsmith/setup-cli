@@ -41,4 +41,3 @@ export function scopedEnvName(base: string, rawUrl: string): string {
 export function urlHost(rawUrl: string): string {
   return new URL(rawUrl).host.toLowerCase()
 }
-
