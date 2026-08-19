@@ -16,6 +16,19 @@ jobs:
       - run: flagsmith auth status
 ```
 
+Or, with a static key:
+
+```yaml
+jobs:
+  flagsmith:
+    runs-on: ubuntu-latest
+    env:
+      FLAGSMITH_API_KEY: ${{ secrets.FLAGSMITH_API_KEY }}
+    steps:
+      - uses: Flagsmith/setup-cli@v1 # installs the CLI, skips the token exchange
+      - run: flagsmith flags list # uses your key
+```
+
 ## Inputs
 
 | Input         | Default                     | Description                                                                                            |
@@ -26,18 +39,11 @@ jobs:
 
 ## When the action skips authentication
 
-The CLI is always installed. Authentication is skipped, with a warning, when:
+The action always installs the CLI, but may skip authentication if:
 
-- the job has no `id-token: write` permission.
 - the run is a pull request from a fork.
-- the job already carries a credential the CLI would use for this `api-url` (`FLAGSMITH_API_KEY` or `FLAGSMITH_ACCESS_TOKEN`, scoped to provided `api-url`). Bring your own key and the action leaves it alone:
-
-```yaml
-- uses: Flagsmith/setup-cli@v1
-- run: flagsmith auth status
-  env:
-    FLAGSMITH_API_KEY: ${{ secrets.FLAGSMITH_API_KEY }}
-```
+- the job has no `id-token: write` permission.
+- the job already carries a credential the CLI would use for this `api-url` (`FLAGSMITH_API_KEY` or `FLAGSMITH_ACCESS_TOKEN`, scoped to provided `api-url`).
 
 ## What the action exports
 
