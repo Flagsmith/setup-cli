@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { exec, getExecOutput } from '@actions/exec'
 
 import { pinnedVersion, platformInstaller, scriptUrl } from './install.js'
+
+vi.mock('@actions/exec', () => ({
+  exec: vi.fn(),
+  getExecOutput: vi.fn().mockResolvedValue({
+    stdout: '',
+    stderr: '',
+    exitCode: 0,
+  }),
+}))
 
 describe('pinnedVersion', () => {
   it.each([
@@ -18,30 +29,31 @@ describe('pinnedVersion', () => {
 })
 
 describe('platformInstaller', () => {
-  it('omits the version switch when nothing is pinned', () => {
-    expect(platformInstaller('', '/tmp', '/tmp/bin', 'linux').args).toEqual([
+  beforeEach(() => {
+    vi.mocked(exec).mockClear()
+    vi.mocked(getExecOutput).mockClear()
+  })
+
+  it('omits the version switch when nothing is pinned', async () => {
+    await platformInstaller('', '/tmp', '/tmp/bin', 'linux').install()
+    expect(exec).toHaveBeenCalledWith('sh', [
       '/tmp/install.sh',
       '--bin-dir',
       '/tmp/bin',
       '--no-modify-path',
     ])
-    expect(
-      platformInstaller('', 'C:\\t', 'C:\\t\\bin', 'win32').args,
-    ).not.toContain('-Version')
+
+    await platformInstaller('', 'C:\\t', 'C:\\t\\bin', 'win32').install()
+    expect(vi.mocked(exec).mock.calls[1]?.[1]).not.toContain('-Version')
   })
 
-  it('keeps the shell installer out of $HOME and off PATH', () => {
-    const { script, scriptPath, binary, command, args } = platformInstaller(
-      'v2.0.0',
-      '/tmp',
-      '/tmp/bin',
-      'linux',
-    )
-    expect(script).toBe('install.sh')
-    expect(scriptPath).toBe('/tmp/install.sh')
-    expect(binary).toBe('/tmp/bin/flagsmith')
-    expect(command).toBe('sh')
-    expect(args).toEqual([
+  it('keeps the shell installer out of $HOME and off PATH', async () => {
+    const installer = platformInstaller('v2.0.0', '/tmp', '/tmp/bin', 'linux')
+    expect(installer.script).toBe('install.sh')
+    expect(installer.scriptPath).toBe('/tmp/install.sh')
+    expect(installer.binary).toBe('/tmp/bin/flagsmith')
+    await installer.install()
+    expect(exec).toHaveBeenCalledWith('sh', [
       '/tmp/install.sh',
       '--version',
       'v2.0.0',
@@ -51,25 +63,54 @@ describe('platformInstaller', () => {
     ])
   })
 
-  it('passes the equivalent switches to the PowerShell installer', () => {
-    const { script, binary, command, args } = platformInstaller(
+  it('passes the equivalent switches to the PowerShell installer', async () => {
+    const installer = platformInstaller(
       'v2.0.0',
       'C:\\t',
       'C:\\t\\bin',
       'win32',
     )
-    expect(script).toBe('install.ps1')
-    expect(binary).toContain('flagsmith.exe')
+    expect(installer.script).toBe('install.ps1')
+    expect(installer.binary).toContain('flagsmith.exe')
+    await installer.install()
+    const [command, args] = vi.mocked(exec).mock.calls[0] ?? []
     expect(command).toBe('pwsh')
     expect(args).toContain('-NoModifyPath')
     expect(args).toContain('-NonInteractive')
-    expect(args.slice(args.indexOf('-Version'))).toEqual([
+    expect(args?.slice(args.indexOf('-Version'))).toEqual([
       '-Version',
       'v2.0.0',
       '-BinDir',
       'C:\\t\\bin',
       '-NoModifyPath',
     ])
+  })
+
+  it('resolves the version with a dry run of the installer', async () => {
+    vi.mocked(getExecOutput).mockResolvedValueOnce({
+      stdout: 'would install flagsmith v2.3.4 to /tmp/bin\n',
+      stderr: '',
+      exitCode: 0,
+    })
+    const installer = platformInstaller('', '/tmp', '/tmp/bin', 'linux')
+    await expect(installer.resolveVersion()).resolves.toBe('v2.3.4')
+    expect(getExecOutput).toHaveBeenCalledWith(
+      'sh',
+      [
+        '/tmp/install.sh',
+        '--bin-dir',
+        '/tmp/bin',
+        '--no-modify-path',
+        '--dry-run',
+      ],
+      { silent: true, ignoreReturnCode: true },
+    )
+    expect(exec).not.toHaveBeenCalled()
+  })
+
+  it('resolves to the empty string when the dry run names no version', async () => {
+    const installer = platformInstaller('', '/tmp', '/tmp/bin', 'linux')
+    await expect(installer.resolveVersion()).resolves.toBe('')
   })
 })
 

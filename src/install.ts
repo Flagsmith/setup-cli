@@ -21,18 +21,12 @@ export async function installCli(requested: string): Promise<string> {
   const binDir = path.join(temp, 'flagsmith-cli-install')
   await fs.promises.mkdir(binDir, { recursive: true })
 
-  const { script, scriptPath, binary, command, args, dryRunFlag } =
-    platformInstaller(pinned, temp, binDir)
-  await fetchInstaller(pinned || 'main', script, scriptPath)
+  const installer = platformInstaller(pinned, temp, binDir)
+  await fetchInstaller(pinned || 'main', installer.script, installer.scriptPath)
 
-  let version = pinned
-  if (!version) {
-    const { stdout } = await getExecOutput(command, [...args, dryRunFlag], {
-      silent: true,
-      ignoreReturnCode: true,
-    })
-    version = /^would install \S+ (\S+)/m.exec(stdout)?.[1] ?? ''
-  }
+  // The installer script owns version resolution: when no version is pinned,
+  // a dry run names the release it would install.
+  const version = pinned || (await installer.resolveVersion())
 
   const cached = version && tc.find(TOOL_NAME, version, process.arch)
   if (cached) {
@@ -41,34 +35,35 @@ export async function installCli(requested: string): Promise<string> {
     return cached
   }
 
-  await exec(command, args)
+  await installer.install()
 
-  if (!fs.existsSync(binary)) {
+  if (!fs.existsSync(installer.binary)) {
     throw new Error(
-      `${script} did not produce ${path.basename(binary)} in ${binDir}. See the installer output above.`,
+      `${installer.script} did not produce ${path.basename(installer.binary)} in ${binDir}. See the installer output above.`,
     )
   }
 
-  // Somehow, we didn't get the exact version from --dry-run.
-  if (!version) {
-    const { stdout } = await getExecOutput(binary, ['--version'], {
-      silent: true,
-      ignoreReturnCode: true,
-    })
-    version = stdout.trim().split(/\s+/).pop() ?? ''
-  }
+  // Belt and braces: if the dry run named no version, ask the binary itself.
+  const installed = version || (await binaryVersion(installer.binary))
 
-  // Somehow, we didn't get the exact version from --version.
-  // Succeed without caching.
-  if (!version) {
+  // Succeed without caching rather than cache under a made-up key.
+  if (!installed) {
     core.addPath(binDir)
     return binDir
   }
 
-  // Cache the exact version in GitHub Actions tool cache.
-  const dir = await tc.cacheDir(binDir, TOOL_NAME, version, process.arch)
+  const dir = await tc.cacheDir(binDir, TOOL_NAME, installed, process.arch)
   core.addPath(dir)
   return dir
+}
+
+/** What the installed binary reports as its version, or `''`. */
+async function binaryVersion(binary: string): Promise<string> {
+  const { stdout } = await getExecOutput(binary, ['--version'], {
+    silent: true,
+    ignoreReturnCode: true,
+  })
+  return stdout.trim().split(/\s+/).pop() ?? ''
 }
 
 /** The release tag to install, or `''` for whatever the installer defaults to. */
@@ -81,27 +76,36 @@ export function pinnedVersion(requested: string): string {
   return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed
 }
 
+export interface Installer {
+  script: InstallScript
+  scriptPath: string
+  /** Where the installer script leaves the binary. */
+  binary: string
+  /** Run the installer. */
+  install(): Promise<void>
+  /** The version a dry run of the installer would install, or `''`. */
+  resolveVersion(): Promise<string>
+}
+
 /**
- * Installer script and arguments for the requested version / platform.
+ * The installer script invocation for the requested version / platform.
  *
  * `--bin-dir` keeps the install out of $HOME, and `--no-modify-path` leaves
- * shell profiles and GITHUB_PATH alone: PATH is set here, after caching.
+ * shell profiles and GITHUB_PATH alone: PATH is set by the caller, after
+ * caching.
  */
 export function platformInstaller(
   version: string,
   temp: string,
   binDir: string,
   platform: string = process.platform,
-) {
-  if (platform === 'win32') {
-    const scriptPath = path.join(temp, 'install.ps1')
-    return {
-      script: 'install.ps1' as const,
-      scriptPath,
-      binary: path.join(binDir, 'flagsmith.exe'),
-      command: 'pwsh',
-      dryRunFlag: '-DryRun',
-      args: [
+): Installer {
+  const windows = platform === 'win32'
+  const script: InstallScript = windows ? 'install.ps1' : 'install.sh'
+  const scriptPath = path.join(temp, script)
+  const command = windows ? 'pwsh' : 'sh'
+  const args = windows
+    ? [
         '-NoLogo',
         '-NonInteractive',
         '-File',
@@ -110,23 +114,29 @@ export function platformInstaller(
         '-BinDir',
         binDir,
         '-NoModifyPath',
-      ],
-    }
-  }
-  const scriptPath = path.join(temp, 'install.sh')
+      ]
+    : [
+        scriptPath,
+        ...(version ? ['--version', version] : []),
+        '--bin-dir',
+        binDir,
+        '--no-modify-path',
+      ]
   return {
-    script: 'install.sh' as const,
+    script,
     scriptPath,
-    binary: path.join(binDir, 'flagsmith'),
-    command: 'sh',
-    dryRunFlag: '--dry-run',
-    args: [
-      scriptPath,
-      ...(version ? ['--version', version] : []),
-      '--bin-dir',
-      binDir,
-      '--no-modify-path',
-    ],
+    binary: path.join(binDir, windows ? 'flagsmith.exe' : 'flagsmith'),
+    async install() {
+      await exec(command, args)
+    },
+    async resolveVersion() {
+      const { stdout } = await getExecOutput(
+        command,
+        [...args, windows ? '-DryRun' : '--dry-run'],
+        { silent: true, ignoreReturnCode: true },
+      )
+      return /^would install \S+ (\S+)/m.exec(stdout)?.[1] ?? ''
+    },
   }
 }
 

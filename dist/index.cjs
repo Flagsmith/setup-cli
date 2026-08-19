@@ -23286,42 +23286,36 @@ async function installCli(requested) {
   const temp = process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? "/tmp";
   const binDir = path6.join(temp, "flagsmith-cli-install");
   await fs5.promises.mkdir(binDir, { recursive: true });
-  const { script, scriptPath, binary, command, args, dryRunFlag } = platformInstaller(pinned, temp, binDir);
-  await fetchInstaller(pinned || "main", script, scriptPath);
-  let version = pinned;
-  if (!version) {
-    const { stdout } = await getExecOutput(command, [...args, dryRunFlag], {
-      silent: true,
-      ignoreReturnCode: true
-    });
-    version = /^would install \S+ (\S+)/m.exec(stdout)?.[1] ?? "";
-  }
+  const installer = platformInstaller(pinned, temp, binDir);
+  await fetchInstaller(pinned || "main", installer.script, installer.scriptPath);
+  const version = pinned || await installer.resolveVersion();
   const cached = version && find(TOOL_NAME, version, process.arch);
   if (cached) {
     info(`Using cached flagsmith ${version} (${process.arch})`);
     addPath(cached);
     return cached;
   }
-  await exec(command, args);
-  if (!fs5.existsSync(binary)) {
+  await installer.install();
+  if (!fs5.existsSync(installer.binary)) {
     throw new Error(
-      `${script} did not produce ${path6.basename(binary)} in ${binDir}. See the installer output above.`
+      `${installer.script} did not produce ${path6.basename(installer.binary)} in ${binDir}. See the installer output above.`
     );
   }
-  if (!version) {
-    const { stdout } = await getExecOutput(binary, ["--version"], {
-      silent: true,
-      ignoreReturnCode: true
-    });
-    version = stdout.trim().split(/\s+/).pop() ?? "";
-  }
-  if (!version) {
+  const installed = version || await binaryVersion(installer.binary);
+  if (!installed) {
     addPath(binDir);
     return binDir;
   }
-  const dir = await cacheDir(binDir, TOOL_NAME, version, process.arch);
+  const dir = await cacheDir(binDir, TOOL_NAME, installed, process.arch);
   addPath(dir);
   return dir;
+}
+async function binaryVersion(binary) {
+  const { stdout } = await getExecOutput(binary, ["--version"], {
+    silent: true,
+    ignoreReturnCode: true
+  });
+  return stdout.trim().split(/\s+/).pop() ?? "";
 }
 function pinnedVersion(requested) {
   const trimmed = requested.trim();
@@ -23331,40 +23325,41 @@ function pinnedVersion(requested) {
   return /^\d/.test(trimmed) ? `v${trimmed}` : trimmed;
 }
 function platformInstaller(version, temp, binDir, platform2 = process.platform) {
-  if (platform2 === "win32") {
-    const scriptPath2 = path6.join(temp, "install.ps1");
-    return {
-      script: "install.ps1",
-      scriptPath: scriptPath2,
-      binary: path6.join(binDir, "flagsmith.exe"),
-      command: "pwsh",
-      dryRunFlag: "-DryRun",
-      args: [
-        "-NoLogo",
-        "-NonInteractive",
-        "-File",
-        scriptPath2,
-        ...version ? ["-Version", version] : [],
-        "-BinDir",
-        binDir,
-        "-NoModifyPath"
-      ]
-    };
-  }
-  const scriptPath = path6.join(temp, "install.sh");
-  return {
-    script: "install.sh",
+  const windows = platform2 === "win32";
+  const script = windows ? "install.ps1" : "install.sh";
+  const scriptPath = path6.join(temp, script);
+  const command = windows ? "pwsh" : "sh";
+  const args = windows ? [
+    "-NoLogo",
+    "-NonInteractive",
+    "-File",
     scriptPath,
-    binary: path6.join(binDir, "flagsmith"),
-    command: "sh",
-    dryRunFlag: "--dry-run",
-    args: [
-      scriptPath,
-      ...version ? ["--version", version] : [],
-      "--bin-dir",
-      binDir,
-      "--no-modify-path"
-    ]
+    ...version ? ["-Version", version] : [],
+    "-BinDir",
+    binDir,
+    "-NoModifyPath"
+  ] : [
+    scriptPath,
+    ...version ? ["--version", version] : [],
+    "--bin-dir",
+    binDir,
+    "--no-modify-path"
+  ];
+  return {
+    script,
+    scriptPath,
+    binary: path6.join(binDir, windows ? "flagsmith.exe" : "flagsmith"),
+    async install() {
+      await exec(command, args);
+    },
+    async resolveVersion() {
+      const { stdout } = await getExecOutput(
+        command,
+        [...args, windows ? "-DryRun" : "--dry-run"],
+        { silent: true, ignoreReturnCode: true }
+      );
+      return /^would install \S+ (\S+)/m.exec(stdout)?.[1] ?? "";
+    }
   };
 }
 function scriptUrl(ref, script) {
