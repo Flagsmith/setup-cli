@@ -23094,12 +23094,12 @@ var API_KEY_ENV = "FLAGSMITH_API_KEY";
 function existingCredential(apiUrl, env = process.env) {
   const isDefaultHost = urlHost(apiUrl) === urlHost(DEFAULT_API_URL);
   for (const base of [API_KEY_ENV, ACCESS_TOKEN_ENV]) {
-    const wanted = scopedEnvName(base, apiUrl).toLowerCase();
-    const scoped = Object.keys(env).find(
-      (key) => key.toLowerCase() === wanted && env[key]
+    const scopedName = scopedEnvName(base, apiUrl).toLowerCase();
+    const scopedCredential = Object.keys(env).find(
+      (key) => key.toLowerCase() === scopedName && env[key]
     );
-    if (scoped) {
-      return scoped;
+    if (scopedCredential) {
+      return scopedCredential;
     }
     if (isDefaultHost && env[base]) {
       return base;
