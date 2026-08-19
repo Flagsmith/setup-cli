@@ -23008,7 +23008,7 @@ var fs3 = __toESM(require("node:fs"), 1);
 
 // src/http.ts
 var USER_AGENT = "Flagsmith/setup-cli";
-async function fetchOk(url, fail, postJson, http2 = new HttpClient(USER_AGENT)) {
+async function fetchOk(url, errorFor, postJson, http2 = new HttpClient(USER_AGENT)) {
   const response = postJson === void 0 ? await http2.get(url) : await http2.post(url, postJson, {
     "content-type": "application/json",
     accept: "application/json"
@@ -23018,7 +23018,7 @@ async function fetchOk(url, fail, postJson, http2 = new HttpClient(USER_AGENT)) 
   if (status !== 200) {
     const snippet = body.replace(/\s+/g, " ").trim().slice(0, 500);
     throw new Error(
-      fail(status) + (snippet ? `
+      errorFor(status) + (snippet ? `
 Response body: ${snippet}` : "")
     );
   }
