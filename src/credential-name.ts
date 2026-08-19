@@ -45,5 +45,7 @@ export function urlHost(rawUrl: string): string {
 
 function lookupFold(env: NodeJS.ProcessEnv, name: string): string | undefined {
   const wanted = name.toLowerCase()
-  return Object.keys(env).find((key) => key.toLowerCase() === wanted && env[key])
+  return Object.keys(env).find(
+    (key) => key.toLowerCase() === wanted && env[key],
+  )
 }

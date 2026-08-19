@@ -16,14 +16,16 @@ export async function fetchOk(
     postJson === undefined
       ? await http.get(url)
       : await http.post(url, postJson, {
-        'content-type': 'application/json',
-        accept: 'application/json',
-      })
+          'content-type': 'application/json',
+          accept: 'application/json',
+        })
   const body = await response.readBody()
   const status = response.message.statusCode ?? 0
   if (status !== 200) {
     const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 500)
-    throw new Error(fail(status) + (snippet ? `\nResponse body: ${snippet}` : ''))
+    throw new Error(
+      fail(status) + (snippet ? `\nResponse body: ${snippet}` : ''),
+    )
   }
   return body
 }

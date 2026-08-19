@@ -21,10 +21,9 @@ const FORK_PR_WARNING =
   'FLAGSMITH_API_KEY from secrets, if these runs need Flagsmith access.'
 
 export async function run(): Promise<void> {
-  const apiUrl = new URL(core.getInput('api-url') || DEFAULT_API_URL).href.replace(
-    /\/$/,
-    '',
-  )
+  const apiUrl = new URL(
+    core.getInput('api-url') || DEFAULT_API_URL,
+  ).href.replace(/\/$/, '')
   const audience = core.getInput('audience').trim()
 
   await installCli(core.getInput('cli-version'))
@@ -37,7 +36,9 @@ export async function run(): Promise<void> {
 
   if (!hasOidcIdentity()) {
     if (isForkPullRequest()) {
-      core.warning(FORK_PR_WARNING, { title: 'No OIDC identity (fork pull request)' })
+      core.warning(FORK_PR_WARNING, {
+        title: 'No OIDC identity (fork pull request)',
+      })
     } else {
       core.warning(NO_IDENTITY_WARNING, { title: 'No OIDC identity' })
     }
@@ -51,10 +52,13 @@ export async function run(): Promise<void> {
   core.setSecret(token.accessToken)
 
   core.exportVariable('FLAGSMITH_API_URL', apiUrl)
-  core.exportVariable(scopedEnvName(ACCESS_TOKEN_ENV, apiUrl), token.accessToken)
+  core.exportVariable(
+    scopedEnvName(ACCESS_TOKEN_ENV, apiUrl),
+    token.accessToken,
+  )
 
   core.info(
     `Authenticated against ${apiUrl}` +
-    (token.expiresIn ? `; access token expires in ${token.expiresIn}s` : ''),
+      (token.expiresIn ? `; access token expires in ${token.expiresIn}s` : ''),
   )
 }

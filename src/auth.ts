@@ -40,8 +40,13 @@ export function hasOidcIdentity(env: NodeJS.ProcessEnv = process.env): boolean {
  * GitHub withholds an OIDC identity from fork pull requests, and no workflow
  * permission can grant one.
  */
-export function isForkPullRequest(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.GITHUB_EVENT_NAME !== 'pull_request' && env.GITHUB_EVENT_NAME !== 'pull_request_target') {
+export function isForkPullRequest(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (
+    env.GITHUB_EVENT_NAME !== 'pull_request' &&
+    env.GITHUB_EVENT_NAME !== 'pull_request_target'
+  ) {
     return false
   }
   const eventPath = env.GITHUB_EVENT_PATH
@@ -53,7 +58,9 @@ export function isForkPullRequest(env: NodeJS.ProcessEnv = process.env): boolean
       pull_request?: { head?: { repo?: { full_name?: unknown } } }
     }
     const head = event.pull_request?.head?.repo?.full_name
-    return typeof head === 'string' && head !== '' && head !== env.GITHUB_REPOSITORY
+    return (
+      typeof head === 'string' && head !== '' && head !== env.GITHUB_REPOSITORY
+    )
   } catch {
     return false
   }
@@ -72,7 +79,8 @@ export function parseExchangeResponse(body: string): ExchangedToken {
   }
   return {
     accessToken,
-    expiresIn: typeof parsed.expires_in === 'number' ? parsed.expires_in : undefined,
+    expiresIn:
+      typeof parsed.expires_in === 'number' ? parsed.expires_in : undefined,
   }
 }
 

@@ -25,9 +25,9 @@ describe('platformInstaller', () => {
       '/tmp/bin',
       '--no-modify-path',
     ])
-    expect(platformInstaller('', 'C:\\t', 'C:\\t\\bin', 'win32').args).not.toContain(
-      '-Version',
-    )
+    expect(
+      platformInstaller('', 'C:\\t', 'C:\\t\\bin', 'win32').args,
+    ).not.toContain('-Version')
   })
 
   it('keeps the shell installer out of $HOME and off PATH', () => {

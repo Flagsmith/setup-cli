@@ -1,26 +1,27 @@
-# These hooks need the repo's npm toolchain, which pre-commit.ci's image does
-# not carry. They run locally; PRs get vitest from pull-request.yml.
-ci:
-  skip: [typecheck, test, dist]
-
+exclude: ^dist/
 repos:
-  - repo: local
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
     hooks:
-      - id: typecheck
-        name: tsc --noEmit
-        entry: npm run typecheck
-        language: system
-        files: \.(ts|json)$
-        pass_filenames: false
-      - id: test
-        name: vitest
-        entry: npx vitest run
-        language: system
-        files: \.ts$
-        pass_filenames: false
-      - id: dist
-        name: dist matches src
-        entry: sh -c 'npm run build >/dev/null 2>&1 && git diff --exit-code dist'
-        language: system
-        files: ^(src/|package\.json|tsconfig\.json)
-        pass_filenames: false
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.9.6
+    hooks:
+      - id: prettier
+        types_or: [ts, json, yaml, markdown]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.38.0
+    hooks:
+      - id: check-github-workflows
+      - id: check-renovate

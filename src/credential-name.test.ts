@@ -55,7 +55,9 @@ describe('existingCredential', () => {
   })
 
   it('ignores an unscoped key off the default host, exactly as the CLI does', () => {
-    expect(existingCredential(SELF_HOSTED, { FLAGSMITH_API_KEY: 'k' })).toBeUndefined()
+    expect(
+      existingCredential(SELF_HOSTED, { FLAGSMITH_API_KEY: 'k' }),
+    ).toBeUndefined()
   })
 
   it('finds a scoped credential for a self-hosted instance', () => {
@@ -84,6 +86,8 @@ describe('existingCredential', () => {
   })
 
   it('treats an empty value as absent', () => {
-    expect(existingCredential(DEFAULT, { FLAGSMITH_API_KEY: '' })).toBeUndefined()
+    expect(
+      existingCredential(DEFAULT, { FLAGSMITH_API_KEY: '' }),
+    ).toBeUndefined()
   })
 })

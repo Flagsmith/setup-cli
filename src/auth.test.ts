@@ -72,10 +72,15 @@ describe('hasOidcIdentity', () => {
 
 describe('isForkPullRequest', () => {
   const eventFile = (headRepo: string) => {
-    const file = path.join(mkdtempSync(path.join(tmpdir(), 'setup-cli-')), 'event.json')
+    const file = path.join(
+      mkdtempSync(path.join(tmpdir(), 'setup-cli-')),
+      'event.json',
+    )
     writeFileSync(
       file,
-      JSON.stringify({ pull_request: { head: { repo: { full_name: headRepo } } } }),
+      JSON.stringify({
+        pull_request: { head: { repo: { full_name: headRepo } } },
+      }),
     )
     return file
   }
@@ -154,7 +159,9 @@ describe('exchangeToken', () => {
         } else if (req.url?.includes('proxy')) {
           // What a corporate proxy answers, rather than Flagsmith.
           res.writeHead(407, { 'content-type': 'text/html' })
-          res.end('<html>\n  <head>\n    <title>407 Proxy Authentication Required</title>\n')
+          res.end(
+            '<html>\n  <head>\n    <title>407 Proxy Authentication Required</title>\n',
+          )
         } else if (req.url?.includes('verbose')) {
           res.writeHead(500, { 'content-type': 'text/plain' })
           res.end('x'.repeat(900))
@@ -197,7 +204,9 @@ describe('exchangeToken', () => {
   it('explains a 401 and surfaces the instance detail', async () => {
     await expect(
       exchangeToken(`${baseUrl}/unauthorised`, 'tok', new HttpClient('test')),
-    ).rejects.toThrow(/HTTP 401.*trust relationship matched[\s\S]*No matching trust relationship/)
+    ).rejects.toThrow(
+      /HTTP 401.*trust relationship matched[\s\S]*No matching trust relationship/,
+    )
   })
 
   it('explains a 404 and still shows the body', async () => {

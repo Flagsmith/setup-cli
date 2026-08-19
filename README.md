@@ -42,7 +42,7 @@ The CLI is always installed. Authentication is skipped, with a warning, when:
 ## What the action exports
 
 - `FLAGSMITH_API_URL` so later steps talk to the same instance.
-- `FLAGSMITH_ACCESS_TOKEN_<HOST>`  the access token, scoped to the API URL host.
+- `FLAGSMITH_ACCESS_TOKEN_<HOST>` the access token, scoped to the API URL host.
 
 The CLI binary is added to `PATH` via `GITHUB_PATH`, and cached in the runner tool cache by version and architecture.
 

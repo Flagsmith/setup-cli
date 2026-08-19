@@ -3,7 +3,6 @@ description: >-
   Install the Flagsmith CLI and, when the job has an OIDC identity, exchange it
   for a short-lived Flagsmith access token.
 author: Flagsmith
-
 branding:
   icon: flag
   color: purple
@@ -19,7 +18,7 @@ inputs:
       GitHub's default audience (https://github.com/OWNER). Set it to target a trust
       relationship configured with a specific audience.
     required: false
-    default: ""
+    default: ''
   cli-version:
     description: >-
       Version of the CLI to install, e.g. `v2.0.0`. Defaults to the latest
