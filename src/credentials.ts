@@ -9,15 +9,15 @@ export function existingCredential(
 ): string | undefined {
   const isDefaultHost = urlHost(apiUrl) === urlHost(DEFAULT_API_URL)
   for (const base of [API_KEY_ENV, ACCESS_TOKEN_ENV]) {
+    // Host-scoped names embed a hostname, which is itself case-insensitive,
+    // so the CLI resolves them case-insensitively and this lookup must match.
+    // The unscoped form is an exact name, also matching the CLI.
     const scoped = lookupFold(env, scopedEnvName(base, apiUrl))
     if (scoped) {
       return scoped
     }
-    if (isDefaultHost) {
-      const unscoped = lookupFold(env, base)
-      if (unscoped) {
-        return unscoped
-      }
+    if (isDefaultHost && env[base]) {
+      return base
     }
   }
   return undefined

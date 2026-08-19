@@ -23098,11 +23098,8 @@ function existingCredential(apiUrl, env = process.env) {
     if (scoped) {
       return scoped;
     }
-    if (isDefaultHost) {
-      const unscoped = lookupFold(env, base);
-      if (unscoped) {
-        return unscoped;
-      }
+    if (isDefaultHost && env[base]) {
+      return base;
     }
   }
   return void 0;

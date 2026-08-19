@@ -64,12 +64,18 @@ describe('existingCredential', () => {
     ).toBe('FLAGSMITH_API_KEY_flagsmith_internal_example_com')
   })
 
-  it('matches the name case-insensitively, as the CLI does', () => {
+  it('matches a scoped name case-insensitively, as the CLI does', () => {
     expect(
       existingCredential(SELF_HOSTED, {
         FLAGSMITH_API_KEY_FLAGSMITH_INTERNAL_EXAMPLE_COM: 'k',
       }),
     ).toBe('FLAGSMITH_API_KEY_FLAGSMITH_INTERNAL_EXAMPLE_COM')
+  })
+
+  it('requires the exact unscoped name, as the CLI does', () => {
+    expect(
+      existingCredential(DEFAULT, { flagsmith_api_key: 'k' }),
+    ).toBeUndefined()
   })
 
   it('prefers the Master API key, matching the CLI precedence', () => {
