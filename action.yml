@@ -1,0 +1,31 @@
+name: Setup Flagsmith CLI
+description: >-
+  Install the Flagsmith CLI and, when the job has an OIDC identity, exchange it
+  for a short-lived Flagsmith access token.
+author: Flagsmith
+branding:
+  icon: flag
+  color: purple
+
+inputs:
+  api-url:
+    description: Flagsmith API base URL.
+    required: false
+    default: https://api.flagsmith.com
+  audience:
+    description: >-
+      The `aud` claim to request for the GitHub OIDC token. Defaults to
+      GitHub's own default, https://github.com/OWNER. Only set this if your
+      Flagsmith trust relationship uses a custom audience.
+    required: false
+    default: ''
+  cli-version:
+    description: >-
+      Version of the CLI to install, e.g. `v2.0.0`. Defaults to the latest
+      release.
+    required: false
+    default: latest
+
+runs:
+  using: node24
+  main: dist/index.cjs
