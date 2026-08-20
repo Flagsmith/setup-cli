@@ -9,10 +9,17 @@ permissions:
 
 jobs:
   major-tag:
+    if: ${{ !github.event.release.prerelease }}       
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: |
+      - id: get-major-tag
+        run: |
           major="v${GITHUB_REF_NAME#v}"; major="v${major%%.*}"
-          git tag -f "$major" "$GITHUB_REF_NAME"
-          git push -f origin "$major"
+          echo "result=$major" >> "$GITHUB_OUTPUT"
+      - name: Bump ${{ steps.get-major-tag.outputs.result }}
+        run: |
+          # Point the floating major tag at this release
+          # Makes `uses: Flagsmith/setup-cli@v1` work
+          git tag -f "${{ steps.get-major-tag.outputs.result }}" "$GITHUB_REF_NAME"
+          git push -f origin "${{ steps.get-major-tag.outputs.result }}"
