@@ -13,3 +13,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx vitest run
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    environment: test
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./
+        with:
+          api-url: https://api-staging.flagsmith.com
+      - run: flagsmith --version
+      - run: flagsmith flag list --project "Flagsmith/setup-cli E2E" -e E2E
