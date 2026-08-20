@@ -223,7 +223,7 @@ describe('exchangeToken', () => {
     expect(error.message).toContain('Not Found')
   })
 
-  it('shows a proxy\u2019s HTML answer on one line', async () => {
+  it("shows a proxy's HTML answer on one line", async () => {
     const error = await exchangeToken(
       `${baseUrl}/proxy`,
       'tok',
