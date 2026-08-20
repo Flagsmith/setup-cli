@@ -1,0 +1,18 @@
+name: Update major tag on release
+
+on:
+    release:
+        types: [published]
+
+permissions:
+    contents: write
+
+jobs:
+    major-tag:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - run: |
+                  major="v${GITHUB_REF_NAME#v}"; major="v${major%%.*}"                                                                                                                                                                                                      
+                  git tag -f "$major" "$GITHUB_REF_NAME"                                                                                                                                                                                                                    
+                  git push -f origin "$major"
