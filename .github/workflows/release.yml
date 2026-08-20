@@ -9,13 +9,14 @@ permissions:
 
 jobs:
   major-tag:
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'v') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: get-major-tag
         run: |
-          major="v${GITHUB_REF_NAME#v}"; major="v${major%%.*}"
+          # v1.2.3 -> v1
+          major="v$(echo "${GITHUB_REF_NAME#v}" | cut -d. -f1)"
           echo "result=$major" >> "$GITHUB_OUTPUT"
       - name: Bump ${{ steps.get-major-tag.outputs.result }}
         run: |
