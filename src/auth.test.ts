@@ -47,9 +47,33 @@ describe('exchangeFailureHint', () => {
     )
   })
 
+  it('points 403 at the trust relationship too', () => {
+    expect(exchangeFailureHint(403, 'https://api.flagsmith.com')).toMatch(
+      /trust relationship matched/,
+    )
+  })
+
   it('points 404 at api-url', () => {
     expect(exchangeFailureHint(404, 'https://api.example.com')).toContain(
       'https://api.example.com',
+    )
+  })
+
+  it('calls a 400 a bug and links the issue tracker', () => {
+    expect(exchangeFailureHint(400, 'https://api.flagsmith.com')).toContain(
+      'https://github.com/Flagsmith/setup-cli/issues/new',
+    )
+  })
+
+  it('names the instance when rate limited', () => {
+    expect(exchangeFailureHint(429, 'https://api.example.com')).toBe(
+      'Rate limited by https://api.example.com. Retry shortly.',
+    )
+  })
+
+  it('falls back to a generic hint for unmapped statuses', () => {
+    expect(exchangeFailureHint(503, 'https://api.example.com')).toContain(
+      'Check that api-url points at a Flagsmith instance',
     )
   })
 })
